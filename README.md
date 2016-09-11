@@ -11,4 +11,6 @@ Development:
 
 	From there you can run 'npm run babel' to run a watcher on the src directory (instead of having to use 'npm run init' every single time)
 
+	You can run the bot by running 'npm run bot'
+
 
