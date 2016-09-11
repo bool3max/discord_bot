@@ -39,3 +39,6 @@ jspm_packages
 #ignore some built files
 build/bot.js
 build/discord_extender.js
+
+##
+exp.txt
