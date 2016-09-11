@@ -10,7 +10,37 @@ const Bot = new Discord.Client();
 
 
 Bot.on('ready', function() {
-	this.instantDelete('XWhatevs');
+	this.defineAction('diceroll', msg => {
+		let roll = Math.floor(Math.random() * 101);
+		msg.reply(`You rolled ${roll} !`);
+	});
+
+	this.defineAction('spam', (args, msg) => {
+
+		let messageToSend = args[0],
+			intervalInMsec = parseInt(args[1]) * 1000,
+			cancelAfter = parseInt(args[2]) * 1000;
+
+		let interval = setInterval( () => {
+			msg.channel.sendMessage(messageToSend);
+		}, intervalInMsec);
+
+		if(cancelAfter > 0) setTimeout( () => clearInterval(interval), cancelAfter);
+
+	}, {
+		type: '/',
+		static: false,
+		nameSensitive: false,
+	});
+
+	this.defineAction('spamlit', (args, msg) => {
+		
+	}, {
+		type: '/',
+		static: false,
+		nameSensitive: false
+	});
+
 });
 
 Bot.login(botToken);
