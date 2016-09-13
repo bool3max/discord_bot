@@ -21,7 +21,7 @@ export default function extend(Client) {
 	Client.prototype.defineAction = function(actionName, cb, options = {
 		type: '/',
 		static: true,
-		nameSensitive: true,
+		nameSensitive: false,
 		specificUsers: null,
 		notify: false //if true, and if specific users is an array, it will notify the users who are not in the arr, but have tried to execute the action
 	}) {

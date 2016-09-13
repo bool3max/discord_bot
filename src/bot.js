@@ -10,7 +10,7 @@ const botToken = 'MjIyODA3NDk2MTk5MzcyODAx.CrV4zg.VyOFUWEgMzs1nhGkCBkH4EV00SE';
 const Bot = new Discord.Client();
 
 Bot.on('ready', function() {
-	console.log('Bot is ready');
+	console.log('Bot ready');
 	Currency.extend(this); //we extend our discord client instance with the currency methods
 
 
@@ -35,10 +35,11 @@ Bot.on('ready', function() {
 
 	}, {
 		type: '/',
-		static: false,
-		nameSensitive: false,
+		static: false
 	});
 
 });
 
 Bot.login(botToken);
+
+process.on('SIGINT', () => Bot.destroy() );
