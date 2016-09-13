@@ -3,6 +3,8 @@ A simple custom Discord bot written with Discord.js
 
 Development: 
 
+    NOTE: This is requires that you have a local Redis server running on port 6379
+
 	Clone the repo
 
 	Run 'sudo npm install' to fetch all dependencies
