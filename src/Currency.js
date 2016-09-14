@@ -2,11 +2,11 @@
 	//a user makes a new account
 	//it is saved locally in currencyUsers obj, and immediately saved in the db with CurrencyUser.saveEntire()
 	//let's say that the user somehow updates his balance, let's say by winning a game
-	//we use the 'balance' setter to update the balance locally, but we also set it in the db
+	//we use the 'balance' method to update the balance locally, but we also set it in the db
 	//let's say the user wants to check his balance
 	//we're gonna get his balance only locally (not form the db, but from the currencyusers object), since the data on the db and the local data are always the same
 	//when the bot is shut down, we go through all users and run CurrencyUsers.saveEntire() on them
-	//when we start the bot again, we go through all the hashes in redis, and we import them into the currencyUsers object
+	//when we start the bot again, we go through all the hashes in redis, and we import them into the localCurrencyUsers object
 
 
 import redis from 'redis';
@@ -14,9 +14,9 @@ const db = redis.createClient(); //we create a redis db instance on localhost:63
 db.on('error', err => console.log(err));
 
 class CurrencyUser {
-	constructor(username, bal = 500) {
+	constructor(username, bal = CurrencyUser.startingBalance) {
 		//this.bal represence the balace as an integer. it's not recommended to modify it directly as the bal won't be stored in the db (or atleast not before the bot is shut down). instead, the .balance() method should be used
-		this.bal = bal; //the initial balance is always 1000
+		this.bal = bal; //the initial balance is always 500
 		this.username = username; //the username should be the username on Discord (not nickname, without #0000)
 	}
 
@@ -55,26 +55,33 @@ class CurrencyUser {
 		if(localCurrencyUsers.hasOwnProperty(username)) return true
 		else return false;
 	}
+
+	static startingBalance = 500
+	static paycheck = {
+		interval: 20000,
+		amount: 200
+	}
+}
+
+function importUsersFromDB() {
+	//imports all users from the redis db into the localCurrencyUsers object
+	db.keys('currencyUser:*', (err, keys) => {
+		if(err) return console.log(err);
+		keys.forEach((hashName, i, arr) => {
+			db.hgetall(hashName, (err, props) => {
+				if(err) return console.log(err);
+				//props is an object containing all props and values of the hash (currencyUser)
+				let {username, bal} = props;
+				localCurrencyUsers[username] = new CurrencyUser(username, parseInt(bal)); //when we get the 'bal' from redis, it's a string and since our constructor's bal prop operates with numbers, we run parse it as a num
+			});
+		});
+	});
 }
 
 
 const localCurrencyUsers = new Object();
 
-//importing currencyUsers from db to localCurrencyUsers
-
-db.keys('currencyUser:*', (err, keys) => {
-	if(err) return console.log(err);
-	keys.forEach((hashName, i, arr) => {
-		db.hgetall(hashName, (err, props) => {
-			if(err) return console.log(err);
-			//props is an object containing all props and values of the hash (currencyUser)
-			let {username, bal} = props;
-			localCurrencyUsers[username] = new CurrencyUser(username, parseInt(bal)); //when we get the 'bal' from redis, it's a stringe and since our constructor's bal prop operates with numbers, we run parse it as a num
-		});
-	});
-});
-
-//
+importUsersFromDB();
 
 export function extend(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
@@ -109,7 +116,7 @@ export function extend(DiscordClient) {
 
 process.on('SIGINT', CurrencyUser.saveAll); //when we quit the process, we run saveAll which goes through all local currency users and saves them to the db (just in case. theoretically they db should be up to date)
 
-process.on('SIGINT', () => {
-	//TESTING, REMOVE LATER
-	console.log(localCurrencyUsers);
-})
+// process.on('SIGINT', () => {
+// 	//TESTING, REMOVE LATER
+// 	console.log(localCurrencyUsers);
+// })
