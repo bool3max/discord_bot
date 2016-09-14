@@ -11,7 +11,7 @@
 
 import redis from 'redis';
 const db = redis.createClient(); //we create a redis db instance on localhost:6379
-db.on('error', err => console.log(err));
+db.on('error', console.log);
 
 class CurrencyUser {
 	constructor(username, bal = CurrencyUser.startingBalance) {
@@ -23,20 +23,21 @@ class CurrencyUser {
 	balance(action, amount) {
 		//first it was a setter which didn't work if we wanted to increment or decrement it (+= or -=), then it was 3 seperate methods (too repetitive), now it's 1 method with an action
 		switch(action) {
-			case 'INC': 
+			case 'INCR': 
 				this.bal += amount;
+				db.hincrby([`currencyUser:${this.username}`, 'bal', amount]);
 				break;
-			case 'DEC':
+			case 'DECR':
 				this.bal -= amount;
+				db.hincrby([`currencyUser:${this.username}`, 'bal', -amount]);
 				break;
 			case 'SET':
 				this.bal = amount;
+				db.hset([`currencyUser:${this.username}`, 'bal', amount]);
 				break;
 			default:
 				console.log(`UNSUPPORTED ACTION TYPE: ${action}`);
 		}
-
-		db.hset([`currencyUser:${this.username}`, 'bal', amount]); //we store the balance in the database
 	}
 
 	saveEntire() {
@@ -103,7 +104,7 @@ export function extend(DiscordClient) {
 	DiscordClient.defineAction('bal', msg => {
 		if(CurrencyUser.exists(msg.author.username)) {
 			let currentUser = localCurrencyUsers[msg.author.username];
-			 msg.reply(`Your current balance is $${currentUser.bal}`).catch(console.log);
+			msg.reply(`Your current balance is $${currentUser.bal}`).catch(console.log);
 		}
 		else msg.reply('You do not currently have a bank account. You can make one using /makeBankAccount');
 	}, {
@@ -115,8 +116,3 @@ export function extend(DiscordClient) {
 }
 
 process.on('SIGINT', CurrencyUser.saveAll); //when we quit the process, we run saveAll which goes through all local currency users and saves them to the db (just in case. theoretically they db should be up to date)
-
-// process.on('SIGINT', () => {
-// 	//TESTING, REMOVE LATER
-// 	console.log(localCurrencyUsers);
-// })
