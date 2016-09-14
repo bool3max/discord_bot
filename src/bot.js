@@ -12,10 +12,7 @@ const Bot = new Discord.Client();
 Bot.on('ready', function() {
 	console.log('Bot ready');
 	Currency.extend(this); //we extend our discord client instance with the currency methods
-
-
-
-
+	
 	this.defineAction('diceroll', msg => {
 		let roll = Math.floor(Math.random() * 101);
 		msg.reply(`You rolled ${roll} !`);
