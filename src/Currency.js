@@ -107,7 +107,7 @@ export function extend(DiscordClient) {
 			let newUser = new CurrencyUser(msg.author.username);
 			newUser.saveEntire();
 			localCurrencyUsers[msg.author.username] = newUser;
-			msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running /bal .`);
+			msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running **/bal** .`);
 		}
 		else msg.reply('You already have a bank account.').catch(console.log);
 	}, {
