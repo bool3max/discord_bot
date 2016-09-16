@@ -14,7 +14,7 @@ const db = redis.createClient(); //we create a redis db instance on localhost:63
 db.on('error', console.log);
 
 class CurrencyUser {
-	constructor(username, bal = CurrencyUser.startingBalance) {
+	constructor(username, bal = CurrencyUser.defaults.startingBalance) {
 		//this.bal represence the balace as an integer. it's not recommended to modify it directly as the bal won't be stored in the db (or atleast not before the bot is shut down). instead, the .balance() method should be used
 		this.bal = bal; //the initial balance is always 500
 		this.username = username; //the username should be the username on Discord (not nickname, without #0000)
@@ -57,11 +57,26 @@ class CurrencyUser {
 		else return false;
 	}
 
-	static startingBalance = 500
-	static paycheck = {
-		interval: 20000,
-		amount: 200
+	static accountExists(msg, warn = true) {
+		//utility funciton that checks wheter the author of the msg has a bank account, returns true if he does, and if he does not it replies to the msg, and returns false
+		if(CurrencyUser.exists(msg.author.username)) return true
+		else {
+			if(warn) msg.reply(CurrencyUser.defaults.msgs.noBankAcc).catch(console.log);
+			return false;
+		}
 	}
+
+	static defaults = {
+		startingBalance: 500,
+		paycheck: {
+			interval: 20000,
+			amount: 200
+		},
+		msgs: {
+			noBankAcc: 'You do not currently have a bank account. You can make one using **/makeBankAccount**'
+		}
+	}
+
 }
 
 function importUsersFromDB() {
@@ -88,13 +103,13 @@ export function extend(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
 	DiscordClient.defineAction('makeBankAccount', msg => {
-		if(!CurrencyUser.exists(msg.author.username)) {
+		if(!CurrencyUser.accountExists(msg, false)) {
 			let newUser = new CurrencyUser(msg.author.username);
 			newUser.saveEntire();
 			localCurrencyUsers[msg.author.username] = newUser;
-			msg.reply('You new bank account has been credited with $1000. You can check your balance by running /bal .');
+			msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running /bal .`);
 		}
-		else msg.reply('You already have a bank account.').catch(console.log);	
+		else msg.reply('You already have a bank account.').catch(console.log);
 	}, {
 		type: '/',
 		static: true,
@@ -102,11 +117,10 @@ export function extend(DiscordClient) {
 	});	
 
 	DiscordClient.defineAction('bal', msg => {
-		if(CurrencyUser.exists(msg.author.username)) {
+		if(CurrencyUser.accountExists(msg)) {
 			let currentUser = localCurrencyUsers[msg.author.username];
-			msg.reply(`Your current balance is $${currentUser.bal}`).catch(console.log);
+			msg.reply(`Your current balance is **$${currentUser.bal}**`).catch(console.log);
 		}
-		else msg.reply('You do not currently have a bank account. You can make one using /makeBankAccount');
 	}, {
 		type: '/',
 		static: true,
