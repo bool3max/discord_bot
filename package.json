@@ -2,11 +2,11 @@
   "name": "discord_bot",
   "version": "0.1.1",
   "description": "A simple Discord bot written using Discord.js",
-  "main": "src/bot.js",
+  "main": "build/bot.js",
   "scripts": {
     "init": "babel ./src -d ./build",
     "babel": "babel ./src -w -d ./build",
-    "bot": "node ./build/bot.js"
+    "bot": "nodemon -w build"
   },
   "repository": {
     "type": "git",
@@ -26,7 +26,8 @@
   "devDependencies": {
     "babel-cli": "^6.14.0",
     "babel-plugin-transform-class-properties": "^6.11.5",
-    "babel-plugin-transform-es2015-modules-commonjs": "^6.14.0"
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.14.0",
+    "nodemon": "^1.10.2"
   },
   "dependencies": {
     "discord.js": "^9.1.0",

@@ -8,8 +8,8 @@
 	//when the bot is shut down, we go through all users and run CurrencyUsers.saveEntire() on them
 	//when we start the bot again, we go through all the hashes in redis, and we import them into the localCurrencyUsers object
 
-
 import redis from 'redis';
+
 const db = redis.createClient(); //we create a redis db instance on localhost:6379
 db.on('error', console.log);
 
@@ -79,53 +79,94 @@ class CurrencyUser {
 
 }
 
-function importUsersFromDB() {
-	//imports all users from the redis db into the localCurrencyUsers object
-	db.keys('currencyUser:*', (err, keys) => {
-		if(err) return console.log(err);
-		keys.forEach((hashName, i, arr) => {
-			db.hgetall(hashName, (err, props) => {
-				if(err) return console.log(err);
-				//props is an object containing all props and values of the hash (currencyUser)
-				let {username, bal} = props;
-				localCurrencyUsers[username] = new CurrencyUser(username, parseInt(bal)); //when we get the 'bal' from redis, it's a string and since our constructor's bal prop operates with numbers, we run parse it as a num
-			});
-		});
-	});
-}
-
-
 const localCurrencyUsers = new Object();
 
-importUsersFromDB();
+function importUsersFromDB() {
+	//imports all users from the redis db into the localCurrencyUsers object
+	const getKeys = search => new Promise((resolve, reject) => {
+		db.keys(search, (err, keys) => {
+			err ? reject(err) : resolve(keys);
+		});
+	});
 
-export function extend(DiscordClient) {
+	const getUser = name => new Promise((resolve, reject) => {
+		db.hgetall(name, (err, props) => {
+			err ? reject(err) : resolve(props);
+		});
+	});
+
+	return getKeys('currencyUser:*').then(keys => {
+		let promises = new Array();
+		keys.forEach((hashName, i) => promises.push(getUser(hashName)));	
+		return Promise.all(promises);
+	});
+
+}
+
+export function init(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
-	DiscordClient.defineAction('makeBankAccount', msg => {
-		if(!CurrencyUser.accountExists(msg, false)) {
-			let newUser = new CurrencyUser(msg.author.username);
-			newUser.saveEntire();
-			localCurrencyUsers[msg.author.username] = newUser;
-			msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running **/bal** .`);
-		}
-		else msg.reply('You already have a bank account.').catch(console.log);
-	}, {
-		type: '/',
-		static: true,
-		nameSensitive: false
-	});	
+	importUsersFromDB().then(() => {
+		console.log('importUsersFromDB finished executing, defining Client methods');
+		//imports all users from the redis db and then extends the client once all of the users are imported
+		DiscordClient.defineAction('makeBankAccount', msg => {
+			if(!CurrencyUser.accountExists(msg, false)) {
+				let newUser = new CurrencyUser(msg.author.username);
+				newUser.saveEntire();
+				localCurrencyUsers[msg.author.username] = newUser;
+				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running **/bal** .`);
+			}
+			else msg.reply('You already have a bank account.').catch(console.log);
+		}, {
+			type: '/',
+			static: true,
+			nameSensitive: false
+		});	
 
-	DiscordClient.defineAction('bal', msg => {
-		if(CurrencyUser.accountExists(msg)) {
-			let currentUser = localCurrencyUsers[msg.author.username];
-			msg.reply(`Your current balance is **$${currentUser.bal}**`).catch(console.log);
-		}
-	}, {
-		type: '/',
-		static: true,
-		nameSensitive: false
-	});
+		DiscordClient.defineAction('bal', msg => {
+			if(CurrencyUser.accountExists(msg)) {
+				let currentUser = localCurrencyUsers[msg.author.username];
+				msg.reply(`Your current balance is **$${currentUser.bal}**`).catch(console.log);
+			}
+		}, {
+			type: '/',
+			static: true,
+			nameSensitive: false
+		});
+
+		//games
+
+		DiscordClient.defineAction('coinflip', (args, msg) => {
+			// 0 = heads , 1 = tails
+			const transformer = num => num === 0 ? 'heads' : 'tails'; 
+
+			if(CurrencyUser.accountExists(msg)) {
+				let currentUser = localCurrencyUsers[msg.author.username],
+				    wager = parseInt(args[0]),
+					userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
+					pcSide = Math.floor(Math.random());
+
+				if(userSide === pcSide) {
+					//the user won
+					currentUser.balance('INCR', wager);
+					msg.reply(`You won **$${wager}**!. The coin landed on **${transformer(pcSide)}**!`);
+
+				} else {
+					//he didn't
+					currentUser.balance('DECR', wager);
+					msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`);
+				}
+
+			}
+			
+		}, {
+			type: '/',
+			static: false,
+			nameSensitive: false
+		});	
+
+	}).catch(console.log);
+
 
 }
 

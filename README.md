@@ -15,4 +15,6 @@ Development:
 
 	You can run the bot by running 'npm run bot'
 
+	'npm run bot' is an alias for 'nodemon --watch build', therefore whenever you change a file in the src or build dir, the bot will restart
+
 
