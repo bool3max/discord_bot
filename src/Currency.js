@@ -89,15 +89,20 @@ function importUsersFromDB() {
 		});
 	});
 
-	const getUser = name => new Promise((resolve, reject) => {
+	const storeUser = name => new Promise((resolve, reject) => {
 		db.hgetall(name, (err, props) => {
-			err ? reject(err) : resolve(props);
+			if(err) reject(err);
+			else {
+				const {bal, username} = props;
+				localCurrencyUsers[username] = new CurrencyUser(username, parseInt(bal));
+				resolve(localCurrencyUsers[username]);
+			}
 		});
 	});
 
 	return getKeys('currencyUser:*').then(keys => {
 		let promises = new Array();
-		keys.forEach((hashName, i) => promises.push(getUser(hashName)));	
+		keys.forEach((hashName, i) => promises.push(storeUser(hashName)));	
 		return Promise.all(promises);
 	});
 
@@ -106,9 +111,10 @@ function importUsersFromDB() {
 export function init(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
-	importUsersFromDB().then(() => {
-		console.log('importUsersFromDB finished executing, defining Client methods');
+	importUsersFromDB().then(usersImported => {
 		//imports all users from the redis db and then extends the client once all of the users are imported
+		console.log('importUsersFromDB finished executing, defining Client methods');
+		console.log(usersImported);
 		DiscordClient.defineAction('makeBankAccount', msg => {
 			if(!CurrencyUser.accountExists(msg, false)) {
 				let newUser = new CurrencyUser(msg.author.username);
@@ -144,17 +150,25 @@ export function init(DiscordClient) {
 				let currentUser = localCurrencyUsers[msg.author.username],
 				    wager = parseInt(args[0]),
 					userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
-					pcSide = Math.floor(Math.random());
+					pcSide = Math.floor(Math.random() * 2);
 
-				if(userSide === pcSide) {
-					//the user won
-					currentUser.balance('INCR', wager);
-					msg.reply(`You won **$${wager}**!. The coin landed on **${transformer(pcSide)}**!`);
+				console.log(`wager: ${wager}, balance: ${currentUser.bal}`);
 
+				if(wager <= currentUser.bal) {
+					if(userSide === pcSide) {
+						//the user won
+						console.log('user won');
+						currentUser.balance('INCR', wager);
+						msg.reply(`You won **$${wager}**! The coin landed on **${transformer(pcSide)}**!`);
+
+					} else {
+						//he didn't
+						console.log('user lost');
+						currentUser.balance('DECR', wager);
+						msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`);
+					}
 				} else {
-					//he didn't
-					currentUser.balance('DECR', wager);
-					msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`);
+					msg.reply(`You do not have enough money. Your current balance is $**${currentUser.bal}**`);
 				}
 
 			}
@@ -164,6 +178,8 @@ export function init(DiscordClient) {
 			static: false,
 			nameSensitive: false
 		});	
+
+		DiscordClient.defineAction('printobj', msg => console.log(localCurrencyUsers, typeof localCurrencyUsers['XWhatevs'].bal));
 
 	}).catch(console.log);
 
