@@ -1,76 +1,68 @@
-//workflow
-	//a user makes a new account
-	//it is saved locally in currencyUsers obj, and immediately saved in the db with CurrencyUser.saveEntire()
-	//let's say that the user somehow updates his balance, let's say by winning a game
-	//we use the 'balance' method to update the balance locally, but we also set it in the db
-	//let's say the user wants to check his balance
-	//we're gonna get his balance only locally (not form the db, but from the currencyusers object), since the data on the db and the local data are always the same
-	//when the bot is shut down, we go through all users and run CurrencyUsers.saveEntire() on them
-	//when we start the bot again, we go through all the hashes in redis, and we import them into the localCurrencyUsers object
-
 import redis from 'redis';
+import {promisifyAll} from 'bluebird';
+import timeConvert from './utils/timeConverter';
+
+promisifyAll(redis.RedisClient.prototype);
+promisifyAll(redis.Multi.prototype);
 
 const db = redis.createClient(); //we create a redis db instance on localhost:6379
 db.on('error', console.log);
 
+
 class CurrencyUser {
-	constructor(username, bal = CurrencyUser.defaults.startingBalance) {
-		//this.bal represence the balace as an integer. it's not recommended to modify it directly as the bal won't be stored in the db (or atleast not before the bot is shut down). instead, the .balance() method should be used
-		this.bal = bal; //the initial balance is always 500
+	//a class that represents a currencyUser in the batabase
+	//NOTE: do not create instances of this class with an username that doesn't exist. instead use CurrencyUser.create() (static method)
+	constructor(username) {
+		//CurrencyUser.exists(username).then(exists => console.log(`A new CurrencyUser instance was just created and it's: ${exists}`)).catch(console.log);
 		this.username = username; //the username should be the username on Discord (not nickname, without #0000)
 	}
 
-	balance(action, amount) {
-		//first it was a setter which didn't work if we wanted to increment or decrement it (+= or -=), then it was 3 seperate methods (too repetitive), now it's 1 method with an action
+	bal(action, amount) {
+		//returns a promise that resolves (with a value returned from redis) when the action is completed
+		//it is recommended that you pass a number to AMOUNT (it's automatically converted to a string before saving it to discord)
 		switch(action) {
 			case 'INCR': 
-				this.bal += amount;
-				db.hincrby([`currencyUser:${this.username}`, 'bal', amount]);
+				return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', amount]);
 				break;
 			case 'DECR':
-				this.bal -= amount;
-				db.hincrby([`currencyUser:${this.username}`, 'bal', -amount]);
+				return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', -amount]);
 				break;
 			case 'SET':
-				this.bal = amount;
-				db.hset([`currencyUser:${this.username}`, 'bal', amount]);
+				return db.hsetAsync(`currencyUser:${this.username}`, ['bal', amount]);
+				break;
+			case 'GET':
+				return db.hgetAsync(`currencyUser:${this.username}`, ['bal']).then(bal => parseInt(bal));
+				//NOTE: returns a number
 				break;
 			default:
 				console.log(`UNSUPPORTED ACTION TYPE: ${action}`);
 		}
 	}
 
-	saveEntire() {
-		//saves all of the user's data to the db (currently only balance and username)
-		//NOTE: this should only be used when you want to save the entire user at once, if you're only updating individual properties, use the setters above
-		db.hmset([`currencyUser:${this.username}`, 'bal', this.bal, 'username', this.username], redis.print);
-	}
-
-	static saveAll() {
-		//goes through localCurrencyUsers and saves all local users to the db
-		console.log('\b Saving all localCurrencyUsers into Redis db...');
-		for(let username in localCurrencyUsers) localCurrencyUsers[username].saveEntire();
+	static create(username, bal = CurrencyUser.defaults.startingBal) {
+		//returns a promise that resolves if the user was successfully created
+		//make sure to never call this if the user already exists in the database, and perform some kind of check when the user tries to create a bank account
+		return db.hmsetAsync(`currencyUser:${username}`, ['username', username, 'bal', bal]);
 	}
 
 	static exists(username) {
-		if(localCurrencyUsers.hasOwnProperty(username)) return true
-		else return false;
+		//returns a promise that resolves with a bool
+		return db.existsAsync(`currencyUser:${username}`);
 	}
 
 	static accountExists(msg, warn = true) {
 		//utility funciton that checks wheter the author of the msg has a bank account, returns true if he does, and if he does not it replies to the msg, and returns false
-		if(CurrencyUser.exists(msg.author.username)) return true
-		else {
-			if(warn) msg.reply(CurrencyUser.defaults.msgs.noBankAcc).catch(console.log);
-			return false;
-		}
+		return CurrencyUser.exists(msg.author.username).then(exists => {
+			if(!exists && warn) msg.reply(CurrencyUser.defaults.msgs.noBankAcc).catch(console.log).catch(console.log);
+			return Promise.resolve(exists);
+		});
 	}
 
 	static defaults = {
-		startingBalance: 500,
+		startingBal: 500,
 		paycheck: {
-			interval: 20000,
-			amount: 200
+			interval: 600000, //10 minutes
+			amount: 100
 		},
 		msgs: {
 			noBankAcc: 'You do not currently have a bank account. You can make one using **/makeBankAccount**'
@@ -79,111 +71,74 @@ class CurrencyUser {
 
 }
 
-const localCurrencyUsers = new Object();
-
-function importUsersFromDB() {
-	//imports all users from the redis db into the localCurrencyUsers object
-	const getKeys = search => new Promise((resolve, reject) => {
-		db.keys(search, (err, keys) => {
-			err ? reject(err) : resolve(keys);
-		});
-	});
-
-	const storeUser = name => new Promise((resolve, reject) => {
-		db.hgetall(name, (err, props) => {
-			if(err) reject(err);
-			else {
-				const {bal, username} = props;
-				localCurrencyUsers[username] = new CurrencyUser(username, parseInt(bal));
-				resolve(localCurrencyUsers[username]);
-			}
-		});
-	});
-
-	return getKeys('currencyUser:*').then(keys => {
-		let promises = new Array();
-		keys.forEach((hashName, i) => promises.push(storeUser(hashName)));	
-		return Promise.all(promises);
-	});
-
-}
 
 export function init(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
-	importUsersFromDB().then(usersImported => {
-		//imports all users from the redis db and then extends the client once all of the users are imported
-		console.log('importUsersFromDB finished executing, defining Client methods');
-		console.log(usersImported);
-		DiscordClient.defineAction('makeBankAccount', msg => {
-			if(!CurrencyUser.accountExists(msg, false)) {
-				let newUser = new CurrencyUser(msg.author.username);
-				newUser.saveEntire();
-				localCurrencyUsers[msg.author.username] = newUser;
-				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBalance}**. You can check your balance by running **/bal** .`);
-			}
-			else msg.reply('You already have a bank account.').catch(console.log);
-		}, {
-			type: '/',
-			static: true,
-			nameSensitive: false
-		});	
 
-		DiscordClient.defineAction('bal', msg => {
-			if(CurrencyUser.accountExists(msg)) {
-				let currentUser = localCurrencyUsers[msg.author.username];
-				msg.reply(`Your current balance is **$${currentUser.bal}**`).catch(console.log);
-			}
-		}, {
-			type: '/',
-			static: true,
-			nameSensitive: false
-		});
+	DiscordClient.defineAction('makeBankAcc', msg => {
+		CurrencyUser.exists(msg.author.username).then(exists => {
+			if(!exists) {
+				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBal}.** You can check your balance by running **/bal**.`).catch(console.log);
+				return CurrencyUser.create(msg.author.username);
+			} else return msg.reply('You already have a bank account.');
+		}).catch(console.log);
+	}, {
+		type: '/',
+		static: true,
+		nameSensitive: false
+	});	
 
-		//games
+	DiscordClient.defineAction('bal', msg => {
+		CurrencyUser.accountExists(msg).then(exists => {
+			if(exists) {
+				let currentUser = new CurrencyUser(msg.author.username);
+				return currentUser.bal('GET');
+			} else return Promise.reject(`User ${msg.author.username} doesn't exist in DB`);
+		}).then(bal => msg.reply(`Your current balance is **$${bal}**.`)).catch(console.log);
+	}, {
+		type: '/',
+		static: true,
+		nameSensitive: false
+	});
 
-		DiscordClient.defineAction('coinflip', (args, msg) => {
-			// 0 = heads , 1 = tails
-			const transformer = num => num === 0 ? 'heads' : 'tails'; 
+	//games
 
-			if(CurrencyUser.accountExists(msg)) {
-				let currentUser = localCurrencyUsers[msg.author.username],
-				    wager = parseInt(args[0]),
-					userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
-					pcSide = Math.floor(Math.random() * 2);
+	DiscordClient.defineAction('coinflip', (args, msg) => {
+		// 0 = heads , 1 = tails
+		const transformer = num => num === 0 ? 'heads' : 'tails'; 
 
-				console.log(`wager: ${wager}, balance: ${currentUser.bal}`);
+		let wager = parseInt(args[0]),
+			userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
+			pcSide = Math.floor(Math.random() * 2);
 
-				if(wager <= currentUser.bal) {
-					if(userSide === pcSide) {
-						//the user won
-						console.log('user won');
-						currentUser.balance('INCR', wager);
-						msg.reply(`You won **$${wager}**! The coin landed on **${transformer(pcSide)}**!`);
+		CurrencyUser.accountExists(msg).then(exists => {
+			if(exists) {
+				let currentUser = new CurrencyUser(msg.author.username);
+				return currentUser.bal('GET');
+			} else return Promise.reject(`User ${msg.author.username} doesn't exist in DB`);
+		}).then(bal => {
 
-					} else {
-						//he didn't
-						console.log('user lost');
-						currentUser.balance('DECR', wager);
-						msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`);
-					}
+			let currentUser = new CurrencyUser(msg.author.username);
+
+			if(wager <= bal) {
+				if(userSide === pcSide) {
+					//the user won
+					msg.reply(`You won **$${wager}**! The coin landed on **${transformer(pcSide)}**!`).catch(console.log);
+					return currentUser.bal('INCR', wager);
 				} else {
-					msg.reply(`You do not have enough money. Your current balance is $**${currentUser.bal}**`);
+					//he didn't
+					msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`).catch(console.log);
+					return currentUser.bal('DECR', wager);
+					
 				}
+			} else return msg.reply(`You do not have enough money. Your current balance is **$${bal}**.`);
 
-			}
-			
-		}, {
-			type: '/',
-			static: false,
-			nameSensitive: false
-		});	
-
-		DiscordClient.defineAction('printobj', msg => console.log(localCurrencyUsers, typeof localCurrencyUsers['XWhatevs'].bal));
-
-	}).catch(console.log);
-
-
+		}).catch(console.log);
+		
+	}, {
+		type: '/',
+		static: false,
+		nameSensitive: false
+	});	
 }
-
-process.on('SIGINT', CurrencyUser.saveAll); //when we quit the process, we run saveAll which goes through all local currency users and saves them to the db (just in case. theoretically they db should be up to date)

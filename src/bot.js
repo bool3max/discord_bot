@@ -1,6 +1,5 @@
 import Discord from 'discord.js';
 import extend from './discord_extender'; //extends the base client with a few methods, must run the extender before making any Client instances
-import ajax from './ajax_lib';
 import * as Currency from './Currency'; //the Currency.js module
 global.XMLHttpRequest = require('xhr2');
 
