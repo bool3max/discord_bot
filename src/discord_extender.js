@@ -1,3 +1,5 @@
+import mergeDefaults from './utils/merge_defaults';
+
 export default function extend(Client) {
 	Client.prototype.specificUsers = function(users, cb) {
 		//execute an action when a specific user(s) sends a message
@@ -18,29 +20,47 @@ export default function extend(Client) {
 		});
 	}
 
-	Client.prototype.defineAction = function(actionName, cb, options = {
-		type: '/',
-		static: true,
-		nameSensitive: false,
-		specificUsers: null,
-		notify: false //if true, and if specific users is an array, it will notify the users who are not in the arr, but have tried to execute the action
-	}) {
+	Client.prototype.defineAction = function(actionName, callback, options = new Object() ) {
+		//TODO: modify regex string to allow for 
+		//for now it's a very basic rewrite
+		const defaultOptions = {
+			prefix: '!',
+			requiredParams: 0,
+			paramSeperator: ' ',
+			caseSensitive: false,
+			usage: 'Usage string not defined for this action.' //unnecessary for actions with 0 requiredParams, since they cannot be wronly executed
+		}
+
+		options = mergeDefaults(options, defaultOptions);
+
+		const called = content => {
+			if( (options.caseSensitive && content.startsWith(`${options.prefix}${actionName}`)) || (!options.caseSensitive && content.toLowerCase().startsWith(`${options.prefix.toLowerCase()}${actionName.toLowerCase()}`))) {
+				return true;
+			} else return false;
+		}; //returns true if 'content' starts with the action pattern
+		
 		this.on('message', msg => {
 
-			if( (options.nameSensitive && msg.content.startsWith(`${options.type}${actionName}`)) || (!options.nameSensitive && msg.content.toLowerCase().startsWith(`${options.type}${actionName.toLowerCase()}`)) ) {
-				if(options.static) {
-					if(!options.specificUsers) cb(msg)
-					else if(options.specificUsers && options.specificUsers.includes(msg.author.username)) cb(msg)
-					else if(options.notify && options.specificUsers && !options.specificUsers.includes(msg.author.username)) msg.reply('You do not have the permission to execute this action.');	
+			const {content} = msg,
+				  {username} = msg.author;
+			
+			let regexString = `^${options.prefix}${actionName}( \\S+){${options.requiredParams}}`, 
+				regex = new RegExp(regexString, 'i');
+
+			if(options.caseSensitive) {
+				regex = new RegExp(regexString);
+			}	
+
+			if(called(content)) {
+				if(regex.test(content)) {
+					let args = content.substring(options.prefix.length + actionName.length + 1).split(options.paramSeperator);
+					options.requiredParams === 0 ? callback(msg) : callback(msg, args);
+				} else {
+					msg.reply(`Usage: ${options.usage}`).catch(console.log);
 				}
-				else {
-					let args = msg.content.substr(options.type.length + actionName.length + 1).split(', '); //length of the type + the name, and an additional 1 for the space before the first parameter
-					//the arguments are split by a comma, and then a space
-					if(!options.specificUsers) cb(args, msg)
-					else if(options.specificUsers && options.specificUsers.includes(msg.author.username)) cb(args, msg)
-					else if(options.notify && options.specificUsers && !options.specificUsers.includes(msg.author.username)) msg.reply('You do not have the permission to execute this action.');
-				}
-			}		
+
+			}
+
 		});
 	}
 

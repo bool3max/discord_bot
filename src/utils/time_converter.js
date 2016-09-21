@@ -11,7 +11,7 @@ export default function convertTime(from, time) {
 			return time * 60 * 60 * 1000;
 			break;
 		default:
-			return `UNSUPPORTED type of 'from' param: ${from}`;
+			throw `UNSUPPORTED type of 'from' param: ${from}`;
 	}
 
 }

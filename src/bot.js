@@ -10,14 +10,11 @@ const Bot = new Discord.Client();
 
 Bot.on('ready', function() {
 	console.log('Bot ready');
+
 	Currency.init(this); //we init the Currency script
 	
-	this.defineAction('diceroll', msg => {
-		let roll = Math.floor(Math.random() * 101);
-		msg.reply(`You rolled ${roll} !`);
-	});
 
-	this.defineAction('spam', (args, msg) => {
+	this.defineAction('spam', (msg, args) => {
 
 		let messageToSend = args[0],
 			intervalInMsec = parseInt(args[1]) * 1000,
@@ -29,10 +26,7 @@ Bot.on('ready', function() {
 
 		if(cancelAfter > 0) setTimeout( () => clearInterval(interval), cancelAfter);
 
-	}, {
-		type: '/',
-		static: false
-	});
+	}, {requiredParams: 3, usage: '!spam <message> <interval> <timeout>'});
 
 });
 

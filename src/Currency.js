@@ -1,6 +1,6 @@
 import redis from 'redis';
 import {promisifyAll} from 'bluebird';
-import timeConvert from './utils/timeConverter';
+import timeConvert from './utils/time_converter';
 
 promisifyAll(redis.RedisClient.prototype);
 promisifyAll(redis.Multi.prototype);
@@ -8,8 +8,7 @@ promisifyAll(redis.Multi.prototype);
 const db = redis.createClient(); //we create a redis db instance on localhost:6379
 db.on('error', console.log);
 
-
-class CurrencyUser {
+export class CurrencyUser {
 	//a class that represents a currencyUser in the batabase
 	//NOTE: do not create instances of this class with an username that doesn't exist. instead use CurrencyUser.create() (static method)
 	constructor(username) {
@@ -45,32 +44,53 @@ class CurrencyUser {
 		return db.hmsetAsync(`currencyUser:${username}`, ['username', username, 'bal', bal]);
 	}
 
-	static exists(username) {
-		//returns a promise that resolves with a bool
-		return db.existsAsync(`currencyUser:${username}`);
+	static getUser(username) {
+		return CurrencyUser.exists(username).then(exists => {
+			if(exists) {
+				return db.hgetallAsync(`currencyUser:${username}`);
+			} else return Promise.reject(`User: ${username} doesn't exist`);
+		});
 	}
 
-	static accountExists(msg, warn = true) {
-		//utility funciton that checks wheter the author of the msg has a bank account, returns true if he does, and if he does not it replies to the msg, and returns false
-		return CurrencyUser.exists(msg.author.username).then(exists => {
-			if(!exists && warn) msg.reply(CurrencyUser.defaults.msgs.noBankAcc).catch(console.log).catch(console.log);
+	static exists(username, msg) {
+		//returns a promise that resolves with a bool
+		return db.existsAsync(`currencyUser:${username}`).then(exists => {
+			if(!exists && msg) msg.reply(CurrencyUser.defaults.msgs.noBankAcc).catch(console.log);
 			return Promise.resolve(exists);
 		});
 	}
 
+	static constructLeaderboard() {
+		const extractUsername = full => full.substring(13); //currencyUser:Memer ->>> Memer
+		return db.keysAsync('currencyUser:*').then(keys => {
+			if(!keys.length) return Promise.reject('No users!');
+			return Promise.all(keys.map((val, i) => CurrencyUser.getUser(extractUsername(val)))); //resolves with an array of all users in db
+		}).then(users => {
+
+			const sortedUsers = users.sort((a, b) => {
+				a.bal = parseInt(a.bal); b.bal = parseInt(b.bal);
+				if(a.bal > b.bal) return -1;
+				if(a.bal < b.bal) return 1;
+				return 0;
+			});
+
+			return Promise.resolve(sortedUsers);
+
+		});
+	}
+
 	static defaults = {
-		startingBal: 500,
+		startingBal: 200,
 		paycheck: {
-			interval: 600000, //10 minutes
+			interval: timeConvert('min', 15), //15 minutes
 			amount: 100
 		},
 		msgs: {
-			noBankAcc: 'You do not currently have a bank account. You can make one using **/makeBankAccount**'
+			noBankAcc: 'You do not currently have a bank account. You can make one using **!makeBankAcc**'
 		}
 	}
 
 }
-
 
 export function init(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
@@ -79,32 +99,25 @@ export function init(DiscordClient) {
 	DiscordClient.defineAction('makeBankAcc', msg => {
 		CurrencyUser.exists(msg.author.username).then(exists => {
 			if(!exists) {
-				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBal}.** You can check your balance by running **/bal**.`).catch(console.log);
+				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBal}.** You can check your balance by running **!bal**.`).catch(console.log);
 				return CurrencyUser.create(msg.author.username);
 			} else return msg.reply('You already have a bank account.');
 		}).catch(console.log);
-	}, {
-		type: '/',
-		static: true,
-		nameSensitive: false
 	});	
 
 	DiscordClient.defineAction('bal', msg => {
-		CurrencyUser.accountExists(msg).then(exists => {
+		CurrencyUser.exists(msg.author.username, msg).then(exists => {
 			if(exists) {
 				let currentUser = new CurrencyUser(msg.author.username);
 				return currentUser.bal('GET');
-			} else return Promise.reject(`User ${msg.author.username} doesn't exist in DB`);
+			} else return Promise.reject(`User ${msg.author.username} doesn't exist`);
 		}).then(bal => msg.reply(`Your current balance is **$${bal}**.`)).catch(console.log);
-	}, {
-		type: '/',
-		static: true,
-		nameSensitive: false
 	});
 
 	//games
 
-	DiscordClient.defineAction('coinflip', (args, msg) => {
+	DiscordClient.defineAction('coinflip', (msg, args) => {
+		console.log(args);
 		// 0 = heads , 1 = tails
 		const transformer = num => num === 0 ? 'heads' : 'tails'; 
 
@@ -112,7 +125,7 @@ export function init(DiscordClient) {
 			userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
 			pcSide = Math.floor(Math.random() * 2);
 
-		CurrencyUser.accountExists(msg).then(exists => {
+		CurrencyUser.exists(msg.author.username, msg).then(exists => {
 			if(exists) {
 				let currentUser = new CurrencyUser(msg.author.username);
 				return currentUser.bal('GET');
@@ -137,8 +150,24 @@ export function init(DiscordClient) {
 		}).catch(console.log);
 		
 	}, {
-		type: '/',
-		static: false,
-		nameSensitive: false
+		usage: '!coinflip <wager> <side>',
+		requiredParams: 2
 	});	
+
+	//utils
+
+	DiscordClient.defineAction('leaderboard', msg => {
+		CurrencyUser.constructLeaderboard().then(leaderboard => {
+			let textLeaderboard = ``;
+			let i = 1;
+			leaderboard.forEach( (user, index) => {
+				if(index === 0) {
+					textLeaderboard += `**${i}.** :star: ${user.username} - **$${user.bal}**\n\n`;
+				} else textLeaderboard += `**${i}.** ${user.username} - **$${user.bal}**\n\n`;
+				
+				i++;
+			});
+			msg.channel.sendMessage(textLeaderboard);
+		}).catch(console.error);
+	});
 }
