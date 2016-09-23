@@ -12,11 +12,11 @@ export class CurrencyUser {
 	//a class that represents a currencyUser in the batabase
 	//NOTE: do not create instances of this class with an username that doesn't exist. instead use CurrencyUser.create() (static method)
 	constructor(username) {
-		//CurrencyUser.exists(username).then(exists => console.log(`A new CurrencyUser instance was just created and it's: ${exists}`)).catch(console.log);
 		this.username = username; //the username should be the username on Discord (not nickname, without #0000)
 	}
 
 	bal(action, amount) {
+		//utility function for modifying the balance
 		//returns a promise that resolves (with a value returned from redis) when the action is completed
 		//it is recommended that you pass a number to AMOUNT (it's automatically converted to a string before saving it to discord)
 		switch(action) {
@@ -34,8 +34,27 @@ export class CurrencyUser {
 				//NOTE: returns a number
 				break;
 			default:
-				console.log(`UNSUPPORTED ACTION TYPE: ${action}`);
+				return Promise.reject(`UNSUPPORTED ACTION TYPE: ${action}`);
 		}
+	}
+
+	get() {
+		//returns a promise that resolves with the user object in the database
+		return CurrencyUser.getUser(this.username);
+	}
+
+	transferBalance(receiver, amountToTransfer) {
+		return this.bal('GET').then(balance => {
+			console.log(balance, amountToTransfer);
+			if(amountToTransfer <= balance) {
+				return CurrencyUser.exists(receiver);
+			} else return Promise.reject(`You do not have enough money. Your current balance is **$${balance}**.`);
+		}).then(exists => {
+			if(exists) {
+				return new CurrencyUser(receiver).bal('INCR', amountToTransfer);
+			} else return Promise.reject(`**${receiver}** doesn't have a bank account.`);
+		}).then(() => this.bal('DECR', amountToTransfer));
+		
 	}
 
 	static create(username, bal = CurrencyUser.defaults.startingBal) {
@@ -48,7 +67,17 @@ export class CurrencyUser {
 		return CurrencyUser.exists(username).then(exists => {
 			if(exists) {
 				return db.hgetallAsync(`currencyUser:${username}`);
-			} else return Promise.reject(`User: ${username} doesn't exist`);
+			} else return Promise.reject(`User: ${username} doesn't have a bank account.`);
+		});
+	}
+
+	static getAll() {
+		//returns a promise that resolves with an arr of all users in db
+		return db.keysAsync('currencyUser:*').then(keys => {
+			if(!keys.length) {
+				return Promise.reject('No users in database.');
+			}
+			return Promise.all(keys.map( (username, i) => CurrencyUser.getUser( CurrencyUser.extractUsername(username) ) ));
 		});
 	}
 
@@ -61,11 +90,7 @@ export class CurrencyUser {
 	}
 
 	static constructLeaderboard() {
-		const extractUsername = full => full.substring(13); //currencyUser:Memer ->>> Memer
-		return db.keysAsync('currencyUser:*').then(keys => {
-			if(!keys.length) return Promise.reject('No users!');
-			return Promise.all(keys.map((val, i) => CurrencyUser.getUser(extractUsername(val)))); //resolves with an array of all users in db
-		}).then(users => {
+		return CurrencyUser.getAll().then(users => {
 
 			const sortedUsers = users.sort((a, b) => {
 				a.bal = parseInt(a.bal); b.bal = parseInt(b.bal);
@@ -79,11 +104,34 @@ export class CurrencyUser {
 		});
 	}
 
+	static initPaycheck(DiscordClient) {
+		setInterval(() => {
+			console.log('Paycheck cycle.');
+			CurrencyUser.getAll().then(users => {
+				return Promise.all(users.map( (user, i) => new CurrencyUser(user.username).bal('INCR', CurrencyUser.defaults.paycheck.amount) ));
+			}).then(() => {
+				const guilds = DiscordClient.guilds.array();
+				guilds.forEach( (guild, index) => {
+					if(guild.available) {
+						guild.defaultChannel.sendMessage(CurrencyUser.defaults.paycheck.msg);
+					}
+				});
+
+			}).catch(console.error);
+		}, CurrencyUser.defaults.paycheck.interval);
+	}
+
+	static extractUsername(fullUsername) {
+		//currencyUser:username ->>> username
+		return fullUsername.substring(13);
+	}
+
 	static defaults = {
 		startingBal: 200,
 		paycheck: {
-			interval: timeConvert('min', 15), //15 minutes
-			amount: 100
+			interval: timeConvert('hr', 1),
+			amount: 60,
+			msg: '@here Paycheck received (**$60**)! Next paycheck in 1 hour.'
 		},
 		msgs: {
 			noBankAcc: 'You do not currently have a bank account. You can make one using **!makeBankAcc**'
@@ -95,6 +143,8 @@ export class CurrencyUser {
 export function init(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
+
+	CurrencyUser.initPaycheck(DiscordClient);
 
 	DiscordClient.defineAction('makeBankAcc', msg => {
 		CurrencyUser.exists(msg.author.username).then(exists => {
@@ -114,10 +164,29 @@ export function init(DiscordClient) {
 		}).then(bal => msg.reply(`Your current balance is **$${bal}**.`)).catch(console.log);
 	});
 
+	DiscordClient.defineAction('pay', (msg, args) => {
+		CurrencyUser.exists(msg.author.username, msg).then(exists => {
+			if(exists) {
+				let receiver = args[0],
+					amount = parseInt(args[1]);
+
+				return new CurrencyUser(msg.author.username).transferBalance(receiver, amount).then(() => msg.reply(`You successfully transfered **$${amount}** to **${receiver}**.`));
+
+			} else return Promise.reject();
+		}).catch(err => {
+			if(err) {
+				console.error(err);
+				msg.reply(err).catch(console.error);
+			}
+		});	
+	}, {
+		usage: '!pay <user> <amount>',
+		requiredParams: 2
+	});
+
 	//games
 
 	DiscordClient.defineAction('coinflip', (msg, args) => {
-		console.log(args);
 		// 0 = heads , 1 = tails
 		const transformer = num => num === 0 ? 'heads' : 'tails'; 
 
@@ -129,7 +198,7 @@ export function init(DiscordClient) {
 			if(exists) {
 				let currentUser = new CurrencyUser(msg.author.username);
 				return currentUser.bal('GET');
-			} else return Promise.reject(`User ${msg.author.username} doesn't exist in DB`);
+			} else return Promise.reject(`User ${msg.author.username} doesn't have a bank account.`);
 		}).then(bal => {
 
 			let currentUser = new CurrencyUser(msg.author.username);
@@ -162,12 +231,16 @@ export function init(DiscordClient) {
 			let i = 1;
 			leaderboard.forEach( (user, index) => {
 				if(index === 0) {
-					textLeaderboard += `**${i}.** :star: ${user.username} - **$${user.bal}**\n\n`;
+					textLeaderboard += `**${i}.** :first_place: ${user.username} - **$${user.bal}**\n\n`;
+				} else if(index === 1) {
+					textLeaderboard += `**${i}.** :second_place: ${user.username} - **$${user.bal}**\n\n`;
+				} else if(index === 2) {
+					textLeaderboard += `**${i}.** :third_place: ${user.username} - **$${user.bal}**\n\n`;
 				} else textLeaderboard += `**${i}.** ${user.username} - **$${user.bal}**\n\n`;
 				
 				i++;
 			});
-			msg.channel.sendMessage(textLeaderboard);
+			msg.channel.sendMessage(textLeaderboard).catch(console.error);
 		}).catch(console.error);
 	});
 }

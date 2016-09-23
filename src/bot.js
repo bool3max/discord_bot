@@ -12,7 +12,6 @@ Bot.on('ready', function() {
 	console.log('Bot ready');
 
 	Currency.init(this); //we init the Currency script
-	
 
 	this.defineAction('spam', (msg, args) => {
 
