@@ -20,8 +20,7 @@ export default function extend(Client) {
 		});
 	}
 
-	Client.prototype.defineAction = function(actionName, callback, options = new Object() ) {
-		//TODO: modify regex string to allow for 
+	Client.prototype.defineAction = function(actionName, callback, options = new Object() ) { 
 		//for now it's a very basic rewrite
 		const defaultOptions = {
 			prefix: '!',
