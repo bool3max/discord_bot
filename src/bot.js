@@ -9,8 +9,7 @@ const botToken = 'MjIyODA3NDk2MTk5MzcyODAx.CrV4zg.VyOFUWEgMzs1nhGkCBkH4EV00SE';
 const Bot = new Discord.Client();
 
 Bot.on('ready', function() {
-	console.log('Bot ready');
-
+	console.log('0lifeBot ready.');
 	Currency.init(this); //we init the Currency script
 
 	this.defineAction('spam', (msg, args) => {
@@ -30,5 +29,3 @@ Bot.on('ready', function() {
 });
 
 Bot.login(botToken);
-
-process.on('SIGINT', () => Bot.destroy() );

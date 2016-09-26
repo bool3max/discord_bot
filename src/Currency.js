@@ -5,8 +5,12 @@ import timeConvert from './utils/time_converter';
 promisifyAll(redis.RedisClient.prototype);
 promisifyAll(redis.Multi.prototype);
 
-const db = redis.createClient(); //we create a redis db instance on localhost:6379
+const db = redis.createClient({
+	password: 'a45hgf678nopzx48712yy3cc0',
+	string_numbers: false
+}); //we create a redis db instance on localhost:6379
 db.on('error', console.log);
+db.hgetAsync('currencyUser:XWhatevs', ['bal']).then(bal => console.log(typeof bal));
 
 export class CurrencyUser {
 	//a class that represents a currencyUser in the batabase
@@ -240,7 +244,7 @@ export function init(DiscordClient) {
 				
 				i++;
 			});
-			msg.channel.sendMessage(textLeaderboard).catch(console.error);
+			return msg.channel.sendMessage(textLeaderboard);
 		}).catch(console.error);
 	});
 }
