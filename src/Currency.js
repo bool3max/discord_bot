@@ -10,7 +10,6 @@ const db = redis.createClient({
 	string_numbers: false
 }); //we create a redis db instance on localhost:6379
 db.on('error', console.log);
-db.hgetAsync('currencyUser:XWhatevs', ['bal']).then(bal => console.log(typeof bal));
 
 export class CurrencyUser {
 	//a class that represents a currencyUser in the batabase
@@ -144,7 +143,7 @@ export class CurrencyUser {
 
 }
 
-export function init(DiscordClient) {
+export function extend(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
 
