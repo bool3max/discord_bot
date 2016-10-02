@@ -1,34 +1,20 @@
 import Discord from 'discord.js';
 import extend from './discord_extender'; //extends the base client with a few methods, must run the extender before making any Client instances
-import * as Currency from './Currency'; //the Currency.js module
 
+//importing commands
+import extend_currency from './commands/currency';
+import extend_misc from './commands/misc';
+//
 extend(Discord.Client); //running the extender on the client
 
-const botToken = 'MjIyODA3NDk2MTk5MzcyODAx.CrV4zg.VyOFUWEgMzs1nhGkCBkH4EV00SE';
+const botToken = 'MjIyODA3NDk2MTk5MzcyODAx.CtJ-cA.f_b2_bUi8R-hQuHiQkJlmmyr1LE';
 const Bot = new Discord.Client();
 
 Bot.on('ready', function() {
 	console.log('0lifeBot ready.');
 	
-	this.defineAction('cock', msg => {
-		
-	});
-	
-	//Currency.extend(this); //we init the Currency script
-
-	//this.defineAction('spam', (msg, args) => {
-
-	// 	let messageToSend = args[0],
-	// 		intervalInMsec = parseInt(args[1]) * 1000,
-	// 		cancelAfter = parseInt(args[2]) * 1000;
-
-	// 	let interval = setInterval( () => {
-	// 		msg.channel.sendMessage(messageToSend);
-	// 	}, intervalInMsec);
-
-	// 	if(cancelAfter > 0) setTimeout( () => clearInterval(interval), cancelAfter);
-
-	// }, {requiredParams: 3, usage: '!spam <message> <interval> <timeout>'});
+	extend_currency(this);
+	extend_misc(this);
 
 });
 
