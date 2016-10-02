@@ -37,9 +37,7 @@ jspm_packages
 .node_repl_history
 
 #ignore some built files
-build/bot.js
-build/discord_extender.js
-build/Currency.js
+build
 
 ##
 exp.txt
