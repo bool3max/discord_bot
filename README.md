@@ -3,7 +3,7 @@ A simple custom Discord bot written with Discord.js
 
 Development: 
 
-    NOTE: This is requires that you have a local Redis server running on port 6379
+    NOTE: This is requires that you have a local Redis server running on port 6379 (also make sure to change (or remove) the redis auth passowrd in src/database.js)
 
 	Clone the repo
 

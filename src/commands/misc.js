@@ -12,5 +12,5 @@ export default function extend(DiscordClient) {
 
 		if(cancelAfter > 0) setTimeout( () => clearInterval(interval), cancelAfter);
 
-	}, {requiredParams: 3, usage: '!spam <message> <interval> <timeout>', cost: 200});
+	}, {requiredParams: 3, usage: '!spam <message> <interval> <timeout>', buyPrice: 3500});
 }

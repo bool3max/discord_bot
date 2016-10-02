@@ -4,6 +4,7 @@ import extend from './discord_extender'; //extends the base client with a few me
 //importing commands
 import extend_currency from './commands/currency';
 import extend_misc from './commands/misc';
+import extend_core from './commands/core.js';
 //
 extend(Discord.Client); //running the extender on the client
 
@@ -13,6 +14,7 @@ const Bot = new Discord.Client();
 Bot.on('ready', function() {
 	console.log('0lifeBot ready.');
 	
+	extend_core(this);
 	extend_currency(this);
 	extend_misc(this);
 

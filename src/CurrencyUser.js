@@ -50,6 +50,20 @@ export default class CurrencyUser {
 		
 	}
 
+	purchaseCommand(commandName) {
+		return this.getOwnedCommands().then(cmds => {
+			//we get the commands as an array, but we want to store them in the cmd1,cmd2,cmd3 format
+			cmds.push(commandName);
+			let storedValue = cmds.join(',');
+
+			return db.hsetAsync(`currencyUser:${this.username}`, 'ownedCommands', storedValue);
+		});
+	}
+
+	getOwnedCommands() {
+		return db.hgetAsync(`currencyUser:${this.username}`, 'ownedCommands').then(ownedCommands => Promise.resolve(ownedCommands.split(',')));
+	}
+
 	static create(username, bal = CurrencyUser.defaults.startingBal) {
 		//returns a promise that resolves if the user was successfully created
 		//make sure to never call this if the user already exists in the database, and perform some kind of check when the user tries to create a bank account
