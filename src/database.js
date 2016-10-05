@@ -1,5 +1,6 @@
 import redis from 'redis';
 import {promisifyAll} from 'bluebird';
+import ws from 'ws';
 
 promisifyAll(redis.RedisClient.prototype);
 promisifyAll(redis.Multi.prototype);

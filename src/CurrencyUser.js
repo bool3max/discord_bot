@@ -51,23 +51,39 @@ export default class CurrencyUser {
 	}
 
 	purchaseCommand(commandName) {
-		return this.getOwnedCommands().then(cmds => {
-			//we get the commands as an array, but we want to store them in the cmd1,cmd2,cmd3 format
-			cmds.push(commandName);
-			let storedValue = cmds.join(',');
+		commandName = commandName.toLowerCase();
+		let commandPrice;
 
-			return db.hsetAsync(`currencyUser:${this.username}`, 'ownedCommands', storedValue);
+		return db.hgetAsync('commandPrices', commandName).then(price => {
+			commandPrice = price;
+			return this.getOwnedCommands();
+		}).then(ownedCmds => {
+			if(!ownedCmds.includes(commandName)) {
+				ownedCmds.push(commandName);
+				let storedValue = ownedCmds.join(',');
+				return db.hsetAsync(`currencyUser:${this.username}`, 'ownedCommands', storedValue);
+			} else {
+				return Promise.reject('user already has command');
+			}
+		}).then(() => {
+			return this.bal('DECR', commandPrice);
 		});
 	}
 
 	getOwnedCommands() {
-		return db.hgetAsync(`currencyUser:${this.username}`, 'ownedCommands').then(ownedCommands => Promise.resolve(ownedCommands.split(',')));
+		return db.hgetAsync(`currencyUser:${this.username}`, 'ownedCommands').then(ownedCommands => {
+			if(ownedCommands !== '') {
+				return Promise.resolve(ownedCommands.split(','));
+			} else {
+				return Promise.resolve(new Array());
+			}
+		});
 	}
 
 	static create(username, bal = CurrencyUser.defaults.startingBal) {
 		//returns a promise that resolves if the user was successfully created
 		//make sure to never call this if the user already exists in the database, and perform some kind of check when the user tries to create a bank account
-		return db.hmsetAsync(`currencyUser:${username}`, ['username', username, 'bal', bal]);
+		return db.hmsetAsync(`currencyUser:${username}`, ['username', username, 'bal', bal, 'ownedCommands', '']);
 	}
 
 	static getUser(username) {

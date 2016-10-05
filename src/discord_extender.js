@@ -1,9 +1,10 @@
 import mergeDefaults from './utils/merge_defaults';
-import db from './database.js';
+import db from './database';
 import CurrencyUser from './CurrencyUser';
 
 export default function extend(Client) {
 	Client.prototype.defineCommand = function(commandName, callback, options = new Object() ) { 
+
 		const defaultOptions = {
 			prefix: '!',
 			requiredParams: 0,

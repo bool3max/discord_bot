@@ -1,0 +1,8 @@
+{
+  "globalDependencies": {
+    "koa": "registry:dt/koa#2.0.0+20160724024233",
+    "node": "registry:dt/node#6.0.0+20160928143418",
+    "redis": "registry:dt/redis#0.12.1+20160818110030",
+    "ws": "registry:dt/ws#0.0.0+20161003184106"
+  }
+}
