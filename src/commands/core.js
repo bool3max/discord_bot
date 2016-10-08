@@ -1,41 +1,9 @@
 import db from '../database.js';
 import CurrencyUser from '../CurrencyUser';
+import r_handler from '../utils/reject_handler';
 import fetch from 'node-fetch';
 
 export default function extend(DiscordClient) {
-
-	DiscordClient.on('message', msg => {
-			//transform subreddits into actual links
-			const {content, author} = msg;
-
-			if(author !== DiscordClient.user) {
-				let regex = /(r\/|\/r\/)\w+/g;
-
-				let match = content.match(regex);
-
-				if(match) {
-					match.forEach(str => {
-						let subName = str.substring(str.startsWith('/') ? 3 : 2),
-							aboutUrl = `https://www.reddit.com/r/${subName}/about.json`;
-
-						fetch(aboutUrl).then(res => {
-							console.log('Stats: ', res.status, res.ok, res.url);
-							if((res.ok || res.status === 403) && res.url === aboutUrl)  {
-								//request was successfull and the subreddit exists
-								//403 is returned if a subreddit is forbidden
-								return msg.reply(`You linked a subreddit: https://reddit.com/r/${subName} .`);
-
-							} else {
-								//network error or sub doesn't exist
-								return msg.reply(`Subreddit: ${subName} doesn't exist.`);
-							}
-						}).catch(console.error);
-					});
-				}
-			}
-
-	});
-
 	DiscordClient.defineCommand('purchaseCmd', (msg, args) => {
 		let [commandName] = args;
 		commandName = commandName.toLowerCase();

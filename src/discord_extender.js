@@ -1,6 +1,7 @@
 import mergeDefaults from './utils/merge_defaults';
 import db from './database';
 import CurrencyUser from './CurrencyUser';
+import r_handler from './utils/reject_handler';
 
 export default function extend(Client) {
 	Client.prototype.defineCommand = function(commandName, callback, options = new Object() ) { 
@@ -35,13 +36,13 @@ export default function extend(Client) {
 		
 		const regex = / (?=[^"]*(?:"[^"]*"[^"]*)*$)/g;
 
-		const handleValidation = (msg, content) => {
+		const handleValidation = (msg, rejObject = new Object()) => {
 			//if validation is sucessful, it calls the callback and returns true, otherwise replies to the msg with the usage string, and returns false
 			if(options.requiredParams < 1) {
 				callback(msg);
-				return true;
+				return Promise.resolve();
 			} else {
-				let args = content.substring(options.prefix.length + commandName.length + 1).split(regex).map( (arg, i) => {
+				let args = msg.content.substring(options.prefix.length + commandName.length + 1).split(regex).map( (arg, i) => {
 					if(!Number.isNaN(Number(arg))) {
 						return Number(arg);
 					} else {
@@ -53,48 +54,34 @@ export default function extend(Client) {
 					}
 				});
 				if(args.length < options.requiredParams) {
-					msg.reply(options.usage).catch(console.error);
-					return false;
+					return Promise.reject(mergeDefaults(rejObject, {u: options.usage, d: 'Action wrongly executed.'}));
 				} else {
 					callback(msg, args);
-					return true;						
+					return Promise.resolve(true);			
 				}
 			}
 		}
 
 		this.on('message', msg => {
-
-
-			const {content} = msg,
-				  {username} = msg.author;
 			let currentUser;
 
-			if(called(content)) {
+			if(called(msg.content)) {
+
 				if(options.exec_cost === 0) {
-					handleValidation(msg, content);
-				} else {
-					let currentUser;
-					CurrencyUser.exists(username, msg).then(exists => {
-						if(exists) {
-							currentUser = new CurrencyUser(username);
-							return currentUser.bal('GET');
-						} else {
-							return Promise.reject('User doesn\'t exist');
-						}
-					}).then(bal => {
-						if(bal >= options.exec_cost) {
-							if(handleValidation(msg, content)) {
-								return currentUser.bal('DECR', options.exec_cost);
-							} else {
-								return Promise.reject('Action wrongly executed.');
-							}
-							
-						} else {
-							msg.reply(`You do not have enough money. This action costs **$${options.exec_cost}**. Your current balance is **$${bal}**`).catch(console.error);
-							return Promise.reject('User not enough money');
-						}
-					}).catch(console.error);
+					return handleValidation(msg, {msg}).catch(r_handler);
 				}
+
+				let currentUser = new CurrencyUser(msg.author.username);
+
+				currentUser.bal('GET', null, {msg}).then(bal => {
+					console.log('dis did it')
+					if(bal >= options.exec_cost) {
+						return handleValidation(msg, {msg});
+					} else {
+						return Promise.reject({msg, u: `You do not have enough money. This action costs **$${options.exec_cost}**. Your current balance is **$${bal}**.`});
+					}
+				}).then(() => currentUser.bal('DECR', options.exec_cost, {msg})).catch(r_handler);
+
 			}
 
 		});

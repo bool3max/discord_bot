@@ -1,4 +1,6 @@
 import CurrencyUser from '../CurrencyUser';
+import r_handler from '../utils/reject_handler';
+
 export default function extend(DiscordClient) {
 	//takes an INSTANCE of a discord client, extends it with needed methods
 	//NOTE: must be ran in the ready event of the instance
@@ -6,37 +8,19 @@ export default function extend(DiscordClient) {
 	CurrencyUser.initPaycheck(DiscordClient);
 
 	DiscordClient.defineCommand('makeBankAcc', msg => {
-		CurrencyUser.exists(msg.author.username).then(exists => {
-			if(!exists) {
-				msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBal}.** You can check your balance by running **!bal**.`).catch(console.log);
-				return CurrencyUser.create(msg.author.username);
-			} else return msg.reply('You already have a bank account.');
-		}).catch(console.log);
+		CurrencyUser.create(msg.author.username, {msg}).then(() => msg.reply(`Your new bank account has been credited with **$${CurrencyUser.defaults.startingBal}.** You can check your balance by running **!bal**.`))
+		.catch(r_handler);
 	});	
 
 	DiscordClient.defineCommand('bal', msg => {
-		CurrencyUser.exists(msg.author.username, msg).then(exists => {
-			if(exists) {
-				let currentUser = new CurrencyUser(msg.author.username);
-				return currentUser.bal('GET');
-			} else return Promise.reject(`User ${msg.author.username} doesn't exist`);
-		}).then(bal => msg.reply(`Your current balance is **$${bal}**.`)).catch(console.log);
+		new CurrencyUser(msg.author.username).bal('GET', null, {msg}).then(bal => msg.reply(`Your current balance is **$${bal}**.`)).catch(r_handler);
 	});
 
 	DiscordClient.defineCommand('pay', (msg, args) => {
-		CurrencyUser.exists(msg.author.username, msg).then(exists => {
-			if(exists) {
-				let [receiver, amount] = args;
+		let [receiver, amount] = args;
 
-				return new CurrencyUser(msg.author.username).transferBalance(receiver, amount).then(() => msg.reply(`You successfully transfered **$${amount}** to **${receiver}**.`));
+		new CurrencyUser(msg.author.username).transferBalance(receiver, amount, {msg}).then(() => msg.reply(`You successfully transfered **$${amount}** to **${receiver}**.`)).catch(r_handler);
 
-			} else return Promise.reject();
-		}).catch(err => {
-			if(err) {
-				console.error(err);
-				msg.reply(err).catch(console.error);
-			}
-		});	
 	}, {
 		usage: '!pay <user> <amount>',
 		requiredParams: 2
@@ -50,31 +34,23 @@ export default function extend(DiscordClient) {
 
 		let wager = args[0],
 			userSide = args[1].toLowerCase() === 'heads' ? 0 : 1,
-			pcSide = Math.floor(Math.random() * 2);
+			pcSide = Math.floor(Math.random() * 2),
+			currentUser = new CurrencyUser(msg.author.username);
 
-		CurrencyUser.exists(msg.author.username, msg).then(exists => {
-			if(exists) {
-				let currentUser = new CurrencyUser(msg.author.username);
-				return currentUser.bal('GET');
-			} else return Promise.reject(`User ${msg.author.username} doesn't have a bank account.`);
-		}).then(bal => {
-
-			let currentUser = new CurrencyUser(msg.author.username);
-
+		currentUser.bal('GET', null, {msg}).then(bal => {
 			if(wager <= bal) {
 				if(userSide === pcSide) {
 					//the user won
 					msg.reply(`You won **$${wager}**! The coin landed on **${transformer(pcSide)}**!`).catch(console.log);
-					return currentUser.bal('INCR', wager);
+					return currentUser.bal('INCR', wager, {msg});
 				} else {
 					//he didn't
 					msg.reply(`You lost **$${wager}**. The coin landed on **${transformer(pcSide)}**!`).catch(console.log);
-					return currentUser.bal('DECR', wager);
+					return currentUser.bal('DECR', wager, {msg});
 					
 				}
-			} else return msg.reply(`You do not have enough money. Your current balance is **$${bal}**.`);
-
-		}).catch(console.log);
+			} else return Promise.reject({msg, u: `You do not have enough money. Your current balance is **$${bal}**.`});
+		}).catch(r_handler);
 		
 	}, {
 		usage: '!coinflip <wager> <side>',
