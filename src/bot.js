@@ -5,7 +5,9 @@ import extend from './discord_extender'; //extends the base client with a few me
 import extend_currency from './commands/currency';
 import extend_misc from './commands/misc';
 import extend_core from './commands/core.js';
-//
+
+import liveLeaderboard_extend from './live_leaderboard';
+
 extend(Discord.Client); //running the extender on the client
 
 const botToken = 'MjIyODA3NDk2MTk5MzcyODAx.CtJ-cA.f_b2_bUi8R-hQuHiQkJlmmyr1LE';
@@ -16,6 +18,7 @@ Bot.on('ready', function() {
 	
 	extend_core(this);
 	extend_currency(this);
+	liveLeaderboard_extend(this);
 	extend_misc(this);
 
 });

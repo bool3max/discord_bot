@@ -1,4 +1,4 @@
-import db from './database';
+import db, {publishLeaderboard} from './database';
 import timeConvert from './utils/time_converter';
 import r_handler from './utils/reject_handler.js'
 import mergeDefaults from './utils/merge_defaults';
@@ -9,22 +9,20 @@ export default class CurrencyUser {
 		this.username = username; //the username should be the username on Discord (not nickname, without #0000)
 	}
 
-	bal(action, amount, rejObj = new Object()) {
-		//utility function for modifying the balance
-		//returns a promise that resolves (with a value returned from redis) when the action is completed
+	bal(action, amount, rejObj = new Object()) {	
+		//resolves if the operation was succesfull
 		//it is recommended that you pass a number to AMOUNT (it's automatically converted to a string before saving it to discord)
-
+		//does not check whether the user has enough money upon 'DECR'
 		return CurrencyUser.exists(this.username, rejObj).then(() => {
-			console.log('then from bal was fired');
 			switch(action) {
 				case 'INCR': 
-					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', amount]);
+					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => publishLeaderboard());
 					break;
 				case 'DECR':
-					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', -amount]);
+					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', -amount]).then( () => publishLeaderboard());
 					break;
 				case 'SET':
-					return db.hsetAsync(`currencyUser:${this.username}`, ['bal', amount]);
+					return db.hsetAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => publishLeaderboard());
 					break;
 				case 'GET':
 					return db.hgetAsync(`currencyUser:${this.username}`, ['bal']).then(bal => parseInt(bal));
@@ -61,11 +59,21 @@ export default class CurrencyUser {
 			if(exists) {
 				return db.hgetAsync('commandPrices', commandName);
 			} else {
-				return Promise.reject(mergeDefaults(rejObj, {u: `That command doesn't exist or is not purchasable.`}));
+				return Promise.reject({u: 'That command doesn\'t exist or is not purchasable.', msg: rejObj.msg, d: rejObj.d});
 			}
 		}).then(price => {
-			commandPrice = Number(price); //price is, from the db, returned as a string, therfore we set the price as an interger, later to be used by CurrencyUser.bal
-			return this.getOwnedCommands(rejObj);
+			commandPrice = Number(price);//price is, from the db, returned as a string, therfore we set the price as an interger, later to be used by CurrencyUser.bal
+			return this.bal('GET', null, rejObj); 
+		}).then(bal => {
+			if(bal >= commandPrice) {
+				return this.getOwnedCommands(rejObj);
+			} else {
+				return Promise.reject({
+					msg: rejObj.msg,
+					d: rejObj.d,
+					u: `You do not have enough money. This command costs **$${commandPrice}**. Your current balanc is **$${bal}**`
+				});
+			}
 		}).then(ownedCmds => {
 			if(!ownedCmds.includes(commandName)) {
 				ownedCmds.push(commandName);
@@ -74,18 +82,14 @@ export default class CurrencyUser {
 			} else {
 				return Promise.reject({u: 'You already own that command.', msg: rejObj.msg});
 			}
-		}).then(() => this.bal('DECR', commandPrice));
+		}).then(() => this.bal('DECR', commandPrice, rejObj));
 	}
 
 	getOwnedCommands(rejObj = new Object()) {
 		//resolves with an array of lowercase strings (command names), or an empty array
 		return CurrencyUser.exists(this.username, rejObj).then(() => {
 			return db.hgetAsync(`currencyUser:${this.username}`, 'ownedCommands').then(ownedCommands => {
-				if(ownedCommands !== '') {
-					return Promise.resolve(ownedCommands.split(','));
-				} else {
-					return Promise.resolve(new Array());
-				}
+				return ownedCommands !== '' ? Promise.resolve(ownedCommands.split(',')) : Promise.resolve(new Array());
 			});
 		});
 	} //done
@@ -114,7 +118,6 @@ export default class CurrencyUser {
 	static getUser(username) {
 		//returns a js object, not an instace of CurrencyUser
 		return CurrencyUser.exists(username).then(() => db.hgetallAsync(`currencyUser:${username}`));
-		//since we passed null to CurrencyUser.exists, it won't reply to any message, which is exactly what we want
 
 	} //done
 
@@ -138,21 +141,6 @@ export default class CurrencyUser {
 			return exists ? Promise.resolve() : Promise.reject(rejObj);
 		});
 	} //done
-
-	static constructLeaderboard() {
-		return CurrencyUser.getAll().then(users => {
-
-			const sortedUsers = users.sort((a, b) => {
-				a.bal = parseInt(a.bal); b.bal = parseInt(b.bal);
-				if(a.bal > b.bal) return -1;
-				if(a.bal < b.bal) return 1;
-				return 0;
-			});
-
-			return Promise.resolve(sortedUsers);
-
-		});
-	}
 
 	static initPaycheck(DiscordClient) {
 		setInterval(() => {

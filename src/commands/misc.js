@@ -16,10 +16,6 @@ export default function extend(DiscordClient) {
 
 	}, {requiredParams: 3, usage: '!spam <message> <interval> <timeout>', buyPrice: 3500});
 
-	DiscordClient.defineCommand('test', msg => {
-		console.log('!!');
-	}, {exec_cost: 50});
-
 	DiscordClient.on('message', msg => {
 			//transform subreddits into actual links
 			const {content, author} = msg;

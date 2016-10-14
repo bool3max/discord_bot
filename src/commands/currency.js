@@ -1,4 +1,5 @@
 import CurrencyUser from '../CurrencyUser';
+import CVL from '../leaderboard';
 import r_handler from '../utils/reject_handler';
 
 export default function extend(DiscordClient) {
@@ -60,21 +61,6 @@ export default function extend(DiscordClient) {
 	//utils
 
 	DiscordClient.defineCommand('leaderboard', msg => {
-		CurrencyUser.constructLeaderboard().then(leaderboard => {
-			let textLeaderboard = ``;
-			let i = 1;
-			leaderboard.forEach( (user, index) => {
-				if(index === 0) {
-					textLeaderboard += `**${i}.** :first_place: ${user.username} - **$${user.bal}**\n\n`;
-				} else if(index === 1) {
-					textLeaderboard += `**${i}.** :second_place: ${user.username} - **$${user.bal}**\n\n`;
-				} else if(index === 2) {
-					textLeaderboard += `**${i}.** :third_place: ${user.username} - **$${user.bal}**\n\n`;
-				} else textLeaderboard += `**${i}.** ${user.username} - **$${user.bal}**\n\n`;
-				
-				i++;
-			});
-			return msg.channel.sendMessage(textLeaderboard);
-		}).catch(console.error);
+		CVL().then(leaderboard => msg.channel.sendMessage(leaderboard)).catch(console.error);
 	});
 }

@@ -3,6 +3,7 @@ import db from './database';
 import CurrencyUser from './CurrencyUser';
 import r_handler from './utils/reject_handler';
 
+//TODO: refactor handleValidation to return args upon resolving, instead of calling the callback itself
 export default function extend(Client) {
 	Client.prototype.defineCommand = function(commandName, callback, options = new Object() ) { 
 
@@ -36,13 +37,19 @@ export default function extend(Client) {
 		
 		const regex = / (?=[^"]*(?:"[^"]*"[^"]*)*$)/g;
 
-		const handleValidation = (msg, rejObject = new Object()) => {
+		const handleValidation = (content, rejObj = new Object()) => {
 			//if validation is sucessful, it calls the callback and returns true, otherwise replies to the msg with the usage string, and returns false
 			if(options.requiredParams < 1) {
-				callback(msg);
 				return Promise.resolve();
 			} else {
-				let args = msg.content.substring(options.prefix.length + commandName.length + 1).split(regex).map( (arg, i) => {
+				const fullCommand = content.substring(options.prefix.length + commandName.length + 1);
+
+				if(fullCommand === '') {
+					//when you split an empty string, the returned array actually contains an empty string as the first element, so we want to make sure that the user actually passes something before we split
+					return Promise.reject({u: `**Usage:** ${options.usage}`, d: 'Action wrongly executed.', msg: rejObj.msg});
+				}
+
+				let args = fullCommand.split(regex).map( (arg, i) => {
 					if(!Number.isNaN(Number(arg))) {
 						return Number(arg);
 					} else {
@@ -53,11 +60,11 @@ export default function extend(Client) {
 						return arg;
 					}
 				});
+
 				if(args.length < options.requiredParams) {
-					return Promise.reject(mergeDefaults(rejObject, {u: options.usage, d: 'Action wrongly executed.'}));
+					return Promise.reject({u: `**Usage:** ${options.usage}`, d: 'Action wrongly executed.', msg: rejObj.msg});
 				} else {
-					callback(msg, args);
-					return Promise.resolve(true);			
+					return Promise.resolve(args);			
 				}
 			}
 		}
@@ -68,18 +75,21 @@ export default function extend(Client) {
 			if(called(msg.content)) {
 
 				if(options.exec_cost === 0) {
-					return handleValidation(msg, {msg}).catch(r_handler);
+					return handleValidation(msg.content, {msg}).then(args => {
+						args ? callback(msg, args) : callback(msg);
+					}).catch(r_handler);
 				}
 
 				let currentUser = new CurrencyUser(msg.author.username);
 
 				currentUser.bal('GET', null, {msg}).then(bal => {
-					console.log('dis did it')
 					if(bal >= options.exec_cost) {
-						return handleValidation(msg, {msg});
+						return handleValidation(msg.content, {msg});
 					} else {
 						return Promise.reject({msg, u: `You do not have enough money. This action costs **$${options.exec_cost}**. Your current balance is **$${bal}**.`});
 					}
+				}).then(args => {
+					args ? callback(msg, args) : callback(msg);
 				}).then(() => currentUser.bal('DECR', options.exec_cost, {msg})).catch(r_handler);
 
 			}

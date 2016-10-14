@@ -1,56 +1,36 @@
-import db from '../database.js';
+import db from '../database';
 import CurrencyUser from '../CurrencyUser';
 import r_handler from '../utils/reject_handler';
 import fetch from 'node-fetch';
 
 export default function extend(DiscordClient) {
 	DiscordClient.defineCommand('purchaseCmd', (msg, args) => {
+		console.log(args);
+		
 		let [commandName] = args;
-		commandName = commandName.toLowerCase();
 
-		let currentUser,
-			commandPrice;
+		new CurrencyUser(msg.author.username).purchaseCommand(commandName.toLowerCase(), {msg}).then(() => msg.reply(`You successfully purchased the **${commandName}** command.`)).catch(r_handler);
 
-		CurrencyUser.exists(msg.author.username, msg).then(exists => {
-			if(!exists) {
-				return Promise.reject('user doesn\'t exist in db ');
-			}
-		}).then(() => {
-			return db.hexistsAsync('commandPrices', commandName);
-		}).then(exists => {
-			if (!exists) {
-				msg.reply('That command doesn\'t exist, or is not purchasable.').catch(console.error);
-				return Promise.reject('command doesn\'t exist or is not purchasable');
-			} else {
-				return db.hgetAsync('commandPrices', commandName);
-			}
-		}).then(price => {
-			commandPrice = price;
-			currentUser = new CurrencyUser(msg.author.username);
-			return currentUser.getOwnedCommands();
-		}).then(ownedCmds => {
-			if (!ownedCmds.includes(commandName)) {
-				//the command exists, but the user doesn't own it
-				return currentUser.bal('GET');
-			} else {
-				msg.reply('You\'ve already purchased that command!').catch(console.error);
-				return Promise.reject('user already owns command');
-			}
-		}).then(bal => {
-			if (bal >= commandPrice) {
-				//proceed to buy the command
-				return currentUser.purchaseCommand(commandName);
-			} else {
-				msg.reply(`You do not have enough money. The command costs **$${commandPrice}**, and your current balance is **$${bal}**.`);
-				return Promise.reject('user not enough money');
-			}
-		}).then(() => {
-			msg.reply(`You successfully pruchased the **${commandName}** command.`);
-		}).catch(console.error);
-
-
+		//pretty much every funciton that handles 'commands' automatically transforms them to lower case, but just in case, we also transform it before we pass it to any of these function
 	}, {
 		requiredParams: 1,
-		usage: '!purchaseCommand <commandName>'
+		usage: '!purchaseCmd <commandName>'
 	});
+
+	DiscordClient.defineCommand('myCmds', msg => {
+		new CurrencyUser(msg.author.username).getOwnedCommands({msg}).then(cmdsArray => {
+			if(!cmdsArray.length) {
+				return msg.reply('You haven\'t purchased any commands.').catch(r_handler);
+			}
+			console.log('lll');
+			msg.reply(`You currently own: ${cmdsArray.join(', ')}`).catch(r_handler);
+		})
+	});
+
+	DiscordClient.defineCommand('test', (msg, args) => {
+		console.log('Test executed');
+		console.log(args);
+	}, {
+		requiredParams: 1
+	})
 }
