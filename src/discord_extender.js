@@ -70,35 +70,48 @@ export default function extend(Client) {
 		}
 
 		this.on('message', msg => {
-			let currentUser;
-
 			if(called(msg.content)) {
+				const currentUser = new CurrencyUser(msg.author.username);
+				let userBal,
+					userArgs;
 
-				if(options.exec_cost === 0) {
-					return handleValidation(msg.content, {msg}).then(args => {
-						args ? callback(msg, args) : callback(msg);
-					}).catch(r_handler);
+				if(options.buyPrice === 0 && options.exec_cost === 0) {
+					return handleValidation(msg.content, {msg}).then(args => args ? callback(msg, args) : callback(msg)).catch(r_handler);
 				}
 
-				let currentUser = new CurrencyUser(msg.author.username);
+				handleValidation(msg.content, {msg}).then(args => userArgs = args).then(() => {
+					return currentUser.bal('GET', null, {msg});
+				}).then(bal => userBal = bal).then(() => {
+					let proms = new Array();
 
-				currentUser.bal('GET', null, {msg}).then(bal => {
-					if(bal >= options.exec_cost) {
-						return handleValidation(msg.content, {msg});
-					} else {
-						return Promise.reject({msg, u: `You do not have enough money. This action costs **$${options.exec_cost}**. Your current balance is **$${bal}**.`});
+					if(options.buyPrice > 0) {
+						let prom = currentUser.hasCommand(commandName).then(hasCommand => {
+							if(hasCommand) {
+								return Promise.resolve();
+							} else {
+								return Promise.reject({msg, u: `You do not own the **${commandName}** command. You can purchase it by running: **!purchaseCmd ${commandName}**.`});
+							}
+						});
+
+						proms.push(prom);
 					}
-				}).then(args => {
-					args ? callback(msg, args) : callback(msg);
-				}).then(() => currentUser.bal('DECR', options.exec_cost, {msg})).catch(r_handler);
 
+					if(options.exec_cost > 0) {
+						let prom = new Promise((resolve, reject) => {
+							if(userBal >= options.exec_cost) {
+								resolve();
+							} else {
+								reject({msg, u: `You do not have enough money. This command costs **$${options.exec_cost}**, and your current balance is **$${userBal}**`});
+							}
+						}).then(() => currentUser.bal('DECR', options.exec_cost, {msg}));
+
+						proms.push(prom);
+					}
+
+					return Promise.all(proms);
+				}).then(() => userArgs ? callback(msg, userArgs) : callback(msg)).catch(r_handler);
 			}
-
 		});
 	}
 }
-
-							
-
-
 

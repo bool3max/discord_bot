@@ -29,8 +29,9 @@ export default function extend(DiscordClient) {
 
 	DiscordClient.defineCommand('test', (msg, args) => {
 		console.log('Test executed');
-		console.log(args);
+		console.log('args are', args);
 	}, {
-		requiredParams: 1
+		buyPrice: 100,
+		exec_cost: 3
 	})
 }
