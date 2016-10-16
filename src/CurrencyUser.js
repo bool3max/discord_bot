@@ -1,7 +1,8 @@
-import db, {publishLeaderboard} from './database';
+import db from './db/database';
 import timeConvert from './utils/time_converter';
 import r_handler from './utils/reject_handler.js'
 import mergeDefaults from './utils/merge_defaults';
+import {pubLeaderboard} from './db/publishers';
 
 export default class CurrencyUser {
 	//a class that represents a currencyUser in the batabase
@@ -16,13 +17,13 @@ export default class CurrencyUser {
 		return CurrencyUser.exists(this.username, rejObj).then(() => {
 			switch(action) {
 				case 'INCR': 
-					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => publishLeaderboard());
+					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => pubLeaderboard.all());
 					break;
 				case 'DECR':
-					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', -amount]).then( () => publishLeaderboard());
+					return db.hincrbyAsync(`currencyUser:${this.username}`, ['bal', -amount]).then( () => pubLeaderboard.all());
 					break;
 				case 'SET':
-					return db.hsetAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => publishLeaderboard());
+					return db.hsetAsync(`currencyUser:${this.username}`, ['bal', amount]).then( () => pubLeaderboard.all());
 					break;
 				case 'GET':
 					return db.hgetAsync(`currencyUser:${this.username}`, ['bal']).then(bal => parseInt(bal));

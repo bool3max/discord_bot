@@ -1,4 +1,4 @@
-import db from '../database';
+import db from '../db/database';
 import CurrencyUser from '../CurrencyUser';
 import r_handler from '../utils/reject_handler';
 import fetch from 'node-fetch';
@@ -33,5 +33,16 @@ export default function extend(DiscordClient) {
 	}, {
 		buyPrice: 100,
 		exec_cost: 3
+	});
+
+	DiscordClient.defineCommand('bug', (msg, args) => {
+		let [report] = args;
+		if(report !== '') {
+			db.saddAsync('bugs', report).then(() => msg.reply('You successfully report a bug!')).catch(r_handler);
+		}
+
+	}, {
+		requiredParams: 1,
+		usage: '!bug <description>'
 	})
 }

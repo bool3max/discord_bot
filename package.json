@@ -6,7 +6,8 @@
   "scripts": {
     "init": "babel ./src -d ./build",
     "babel": "babel ./src -w -d ./build",
-    "bot": "nodemon -w build"
+    "bot": "nodemon -w build",
+    "wss": "node -w build build/wss.js"
   },
   "repository": {
     "type": "git",

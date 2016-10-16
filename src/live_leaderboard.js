@@ -1,4 +1,4 @@
-import {createSubscriber as createSub} from './database';
+import {createSubscriber as createSub} from './db/database';
 import r_handler from './utils/reject_handler';
 import CVL from './leaderboard';
 
@@ -18,7 +18,7 @@ export default function extend(DiscordClient) {
 			return guild.channels.find('name', '0life');
 		}
 	})).then(getMessages).then(messages => {
-		const sub = createSub('leaderboard', (channel, visualLeaderboard) => {
+		const sub = createSub('leaderboard_visual', (channel, visualLeaderboard) => {
 			messages.forEach(msg => {
 				msg.edit(visualLeaderboard).catch(console.error);
 			});

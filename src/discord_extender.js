@@ -1,5 +1,5 @@
 import mergeDefaults from './utils/merge_defaults';
-import db from './database';
+import db from './db/database';
 import CurrencyUser from './CurrencyUser';
 import r_handler from './utils/reject_handler';
 
