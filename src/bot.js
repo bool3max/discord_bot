@@ -2,32 +2,46 @@ const bot_config = require('./bot_config.json');
 
 import fs from 'fs';
 import Discord from 'discord.js';
-import extend from './discord_extender'; //extends the base client with a few methods, must run the extender before making any Client instances
 
-import liveLeaderboard_extend from './live_leaderboard';
-
-extend(Discord.Client); //running the extender on the client
+import liveLeaderboard_init from './live_leaderboard';
+import CurrencyUser from './CurrencyUser';
 
 const Bot = new Discord.Client();
 
-Bot.setMaxListeners(50); //temp, until i restructure the command definining to use only 1 listener
-
 Bot.on('ready', function() {
 	console.log('0lifeBot ready, loading commands...');
-	loadCommands(this);
-	liveLeaderboard_extend(this);
 
+	const chatCommands = loadCommands();
+	console.log(`\x1b[36mSuccesfully loaded ${chatCommands.length} ChatCommand instances\x1b[0m\n `);
+
+
+	this.on('message', msg => {
+		chatCommands.forEach(chatCommand => {
+			if(chatCommand.called(msg.content)) {
+				return chatCommand.process(msg);
+			}
+		});
+	});
+
+	CurrencyUser.initPaycheck(this);
+	liveLeaderboard_init(this);
 });
 
 Bot.login(bot_config.bot_token);
 
-function loadCommands(DiscordClient) {
-	//each file in ./build/commands must have a 'default' export, that is a function that takes an instance of a discord client, only then is this function going to work
-	fs.readdirSync('./build/commands').forEach((cmdFile, i, arr) => {
-		require(`./commands/${cmdFile}`).default(DiscordClient);
-		console.log(`Succesfully loaded the ${cmdFile} command file.`);
-		if(i === arr.length - 1) {
-			console.log("\x1b[36mSuccesfully loaded all command files!\x1b[0m\n ");
+function loadCommands() {
+	//TODO: add validation to check whether cmdsObj's prop is an instance of ChatCommand
+	//loops through all files in build/commands. requires() each one. if loops through each one's props. if it's an own prop, pushes it's value to the chatCommands arr
+	//if at the end, chatCommands has no elements, returns null, otherwise returns the chatCommands array
+	let chatCommands = new Array();
+	fs.readdirSync('./build/commands').forEach(cmdFile => {
+		const cmdsObj = require(`./commands/${cmdFile}`);
+		for(let prop in cmdsObj) {
+			if(cmdsObj.hasOwnProperty(prop)) {
+				chatCommands.push(cmdsObj[prop]);
+			}
 		}
 	});
+
+	return chatCommands.length < 1 ? null : chatCommands;
 }

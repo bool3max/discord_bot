@@ -2,7 +2,7 @@ import {createSubscriber as createSub} from './db/database';
 import r_handler from './utils/reject_handler';
 import CVL from './leaderboard';
 
-export default function extend(DiscordClient) {
+export default function init(DiscordClient) {
 	const clientGuilds = DiscordClient.guilds.array();
 
 	Promise.all(clientGuilds.map( (guild, i) => {

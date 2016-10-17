@@ -1,7 +1,6 @@
 import db from './db/database';
 import timeConvert from './utils/time_converter';
 import r_handler from './utils/reject_handler.js'
-import mergeDefaults from './utils/merge_defaults';
 import {pubLeaderboard} from './db/publishers';
 
 export default class CurrencyUser {
@@ -111,7 +110,7 @@ export default class CurrencyUser {
 			if(!exists) {
 				return db.hmsetAsync(`currencyUser:${username}`, ['username', username, 'bal', bal, 'ownedCommands', '']);
 			} else {
-				return Promise.reject(mergeDefaults(rejObj, {d: `user: ${username} already exists in database`, u: 'You already own a bank account.'}));
+				return Promise.reject({msg: rejObj.msg, u: 'You already own a bank account.', d: `user: ${username} already exists in database`});
 			}
 		});
 	} //done
@@ -134,12 +133,12 @@ export default class CurrencyUser {
 
 	static exists(username, rejObj = new Object()) {
 		//resolves if the user exists, rejects with the rejObj if it doesn't. should be catched with r_handler
-		rejObj = mergeDefaults(rejObj, {
-			u: CurrencyUser.defaults.msgs.noBankAcc,
-			d: `user: ${username} doesn't exist`
-		});
 		return db.existsAsync(`currencyUser:${username}`).then(exists => {
-			return exists ? Promise.resolve() : Promise.reject(rejObj);
+			return exists ? Promise.resolve() : Promise.reject({
+				u: CurrencyUser.defaults.msgs.noBankAcc,
+				d: `user: ${username} doesn't exist`, 
+				msg: rejObj.msg
+			});
 		});
 	} //done
 
@@ -147,7 +146,7 @@ export default class CurrencyUser {
 		setInterval(() => {
 			console.log('Paycheck cycle.');
 			CurrencyUser.getAll().then(users => {
-				return Promise.all(users.map( (user, i) => new CurrencyUser(user.username).bal(null, 'INCR', CurrencyUser.defaults.paycheck.amount) ));
+				return Promise.all(users.map( (user, i) => new CurrencyUser(user.username).bal('INCR', CurrencyUser.defaults.paycheck.amount)));
 			}).then(() => {
 				const guilds = DiscordClient.guilds.array();
 				guilds.forEach( (guild, index) => {
