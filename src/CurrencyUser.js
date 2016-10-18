@@ -1,6 +1,6 @@
 import db from './db/database';
 import timeConvert from './utils/time_converter';
-import r_handler from './utils/reject_handler.js'
+import r_handler from './utils/reject_handler';
 import {pubLeaderboard} from './db/publishers';
 
 export default class CurrencyUser {

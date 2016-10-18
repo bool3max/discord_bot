@@ -21,7 +21,7 @@ export default class ChatCommand {
 			//if the command is buyable (price is greater than 0), we'll store it's price in the database, to later be used by !purchaseCommand
 			db.hsetAsync('commandPrices', commandName.toLowerCase(), this.options.buyPrice).then(reply => {
 				//in the db, command names are ALWAYS all lowercase
-				console.log(`Sucessfully set command: ${commandName}'s price (${options.buyPrice}) in the database.`);
+				console.log(`Sucessfully set command: ${commandName}'s price (${this.options.buyPrice}) in the database.`);
 			}).catch(r_handler);
 		}
 
@@ -45,13 +45,12 @@ export default class ChatCommand {
 
 		if(fullCommand === '') {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${options.usage}`,
+				u: `**Usage:** ${this.options.usage}`,
 				d: 'Action wrongly executed'
 			}, rejObj))
 		}
 
 		const regex = / (?=[^"]*(?:"[^"]*"[^"]*)*$)/g;
-
 		let args = fullCommand.split(regex).map( (arg, i) => {
 			if(!Number.isNaN(Number(arg))) {
 				return Number(arg);
@@ -66,7 +65,7 @@ export default class ChatCommand {
 
 		if(args.length < this.options.requiredParams) {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${options.usage}`,
+				u: `**Usage:** ${this.options.usage}`,
 				d: 'Action wrongly executed'
 			}, rejObj));
 		} else {
@@ -104,12 +103,12 @@ export default class ChatCommand {
 
 			if(this.options.exec_cost > 0) {
 				let prom = new Promise((resolve, reject) => {
-					if(userBal >= options.exec_cost) {
+					if(userBal >= this.options.exec_cost) {
 						resolve();
 					} else {
 						reject({msg, u: `You do not have enough money. This command costs **$${this.options.exec_cost}**, and your current balance is **$${userBal}**`});
 					}
-				}).then(() => currentUser.bal('DECR', options.exec_cost, {msg}));
+				}).then(() => currentUser.bal('DECR', this.options.exec_cost, {msg}));
 
 				proms.push(prom);
 			}

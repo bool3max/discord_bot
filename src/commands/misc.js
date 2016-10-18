@@ -16,7 +16,37 @@ export const spam = new ChatCommand('spam', (msg, args) => {
 	requiredParams: 3,
 	usage: '!spam <message> <interval> <timeout>',
 	buyPrice: 3500
-})
+});
+
+export const rot13 = new ChatCommand('rot13', (msg, args) => {
+
+	function rot13char(char) {
+		const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+		if(typeof char !== 'string' || char.length > 1 || char === '') throw new Error('Pass a valid string character.');
+		lowChar = char.toLowerCase();
+		if(!alphabet.includes(lowChar)) return lowChar;
+		let encoded = alphabet.charAt(alphabet.indexOf(lowChar) + 13) !== '' ? alphabet.charAt(alphabet.indexOf(lowChar) + 13) : alphabet.charAt(alphabet.indexOf(lowChar) - 13);
+		return char.toUpperCase() === char ? encoded.toUpperCase() : encoded;
+
+	}
+
+	const [msgToEncode] = args;
+	if(typeof msgToEncode !== 'string') {
+		return msg.reply('Please pass a string.');
+	}
+	let final = '';
+	for(let char of msgToEncode) {
+		final += rot13char(char);
+	}
+	msg.reply(`Here's your string: **${final}**.`).catch(console.error);
+
+}, {
+	requiredParams: 1,
+	usage: '!rot13decode <msg_to_encode>',
+	exec_cost: 20
+});
+
+
 
 // DiscordClient.on('message', msg => {
 // 		//transform subreddits into actual links

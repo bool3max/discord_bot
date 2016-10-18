@@ -4,7 +4,7 @@
   "description": "A simple Discord bot written using Discord.js",
   "main": "build/bot.js",
   "scripts": {
-    "init": "babel ./src -d ./build",
+    "init": "babel ./src -d ./build && touch ./build/bot_config.json",
     "babel": "babel ./src -w -d ./build",
     "bot": "nodemon -w build",
     "wss": "node -w build build/wss.js"
