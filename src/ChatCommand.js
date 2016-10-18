@@ -41,11 +41,11 @@ export default class ChatCommand {
 			return Promise.resolve();
 		}
 
-		const fullCommand =  content.substring(this.options.prefix.length + this.commandName.length + 1);
+		const fullCommand = content.substring(this.options.prefix.length + this.commandName.length + 1);
 
 		if(fullCommand === '') {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${this.options.usage}`,
+				u: `**Usage:** ${this.makeUsageString()}`,
 				d: 'Action wrongly executed'
 			}, rejObj))
 		}
@@ -65,7 +65,7 @@ export default class ChatCommand {
 
 		if(args.length < this.options.requiredParams) {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${this.options.usage}`,
+				u: `**Usage:** ${this.makeUsageString()}`,
 				d: 'Action wrongly executed'
 			}, rejObj));
 		} else {
@@ -115,5 +115,21 @@ export default class ChatCommand {
 
 			return Promise.all(proms);
 		}).then(() => userArgs ? this.callback(msg, userArgs) : this.callback(msg)).catch(r_handler);
+	}
+
+	makeUsageString() {
+		if(Array.isArray(this.options.usage)) {
+			//its an array, we're going to account for ATLEAST 2 elemnts
+			let usageString = '';
+			this.options.usage.forEach((str, i, arr) => {
+				if(i === arr.length - 1) {
+					return usageString += str;
+				}
+				usageString += `${str} **OR** `;
+			});
+			return usageString;
+		} else {
+			return this.options.usage;
+		}
 	}
 }
