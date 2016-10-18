@@ -9,10 +9,10 @@ Development:
 
 	Run 'sudo npm install' to fetch all dependencies
 
-	Run 'npm run init' to compile the src directory for the first time
+	Run 'npm run init' to compile the src directory for the first time, and also create a bot_config.json file in ./build
 
-	In ./build create a file called bot_config.json. Make it an object containing 2 properties. `bot_token`, the token for your bot,
-	and `wss_port`, an integer of the port for the websocket server (only necessary if you wish to use the wss)
+    Go into build/bot_config.json. Make it an object containing 2 properties. `bot_token`, the token for your bot,
+	and `wss_port`, an integer of the port for the websocket server (only necessary if you wish to use the wss, currenty WIP)
 
 	From there you can run 'npm run babel' to run a watcher on the src directory (instead of having to use 'npm run init' every single time)
 
