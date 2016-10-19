@@ -45,7 +45,7 @@ export default class ChatCommand {
 
 		if(fullCommand === '') {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${this.makeUsageString()}`,
+				u: this.usageString,
 				d: 'Action wrongly executed'
 			}, rejObj))
 		}
@@ -65,7 +65,7 @@ export default class ChatCommand {
 
 		if(args.length < this.options.requiredParams) {
 			return Promise.reject(Object.assign({
-				u: `**Usage:** ${this.makeUsageString()}`,
+				u: this.usageString,
 				d: 'Action wrongly executed'
 			}, rejObj));
 		} else {
@@ -117,8 +117,9 @@ export default class ChatCommand {
 		}).then(() => userArgs ? this.callback(msg, userArgs) : this.callback(msg)).catch(r_handler);
 	}
 
-	makeUsageString() {
-		if(Array.isArray(this.options.usage)) {
+	get usageString() {
+		//returns a string that should be sent to the user if the command is wrongly executed
+		if(Array.isArray(this.options.usage) && this.options.usage.length >= 2) {
 			//its an array, we're going to account for ATLEAST 2 elemnts
 			let usageString = '';
 			this.options.usage.forEach((str, i, arr) => {
@@ -127,9 +128,9 @@ export default class ChatCommand {
 				}
 				usageString += `${str} **OR** `;
 			});
-			return usageString;
-		} else {
-			return this.options.usage;
-		}
+			return `Usage: ${usageString}`;
+		} 
+
+		return `Usage: ${this.options.usage}`;
 	}
 }
