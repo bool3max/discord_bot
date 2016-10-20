@@ -1,7 +1,7 @@
 import CurrencyUser from './CurrencyUser';
 
-export function constructLeaderboard() {
-	return CurrencyUser.getAll().then(users => {
+export function constructLeaderboard(rejObj = new Object()) {
+	return CurrencyUser.getAll(rejObj).then(users => {
 
 		const sortedUsers = users.sort((a, b) => {
 			a.bal = parseInt(a.bal); b.bal = parseInt(b.bal);
@@ -15,8 +15,8 @@ export function constructLeaderboard() {
 	});
 }
 
-export default function constructVisualLeaderboard() {
-	return constructLeaderboard().then(leaderboard => {
+export default function constructVisualLeaderboard(rejObj = new Object()) {
+	return constructLeaderboard(rejObj).then(leaderboard => {
 		let textLeaderboard = '';
 
 		leaderboard.forEach((user, i) => {

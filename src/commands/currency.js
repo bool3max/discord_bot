@@ -50,5 +50,5 @@ export const pay = new ChatCommand('pay', (msg, args) => {
 // });
 
 export const leaderboard = new ChatCommand('leaderboard', msg => {
-	CVL().then(leaderboard => msg.channel.sendMessage(leaderboard)).catch(console.error);
+	CVL({msg}).then(leaderboard => msg.channel.sendMessage(leaderboard)).catch(r_handler);
 });

@@ -121,11 +121,11 @@ export default class CurrencyUser {
 
 	} //done
 
-	static getAll() {
+	static getAll(rejObj = new Object()) {
 		//returns a promise that resolves with an arr of all users in db
 		return db.keysAsync('currencyUser:*').then(keys => {
 			if(!keys.length) {
-				return Promise.reject({d: 'No users in database.'});
+				return Promise.reject({msg: rejObj.msg, u: 'No users in database.',d: 'No users in database.'});
 			}
 			return Promise.all(keys.map( (username, i) => CurrencyUser.getUser( CurrencyUser.extractUsername(username) ) ));
 		});
