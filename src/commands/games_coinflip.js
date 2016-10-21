@@ -34,13 +34,62 @@ export const coinflip = new ChatCommand('coinflip', function(msg, args) {
 					if(exists) {
 						return Promise.reject({msg, u: 'You already have an open game!'});
 					}
-				}).then(() => {
 					if(arg1 < 1 || (arg2.toLowerCase() !== 'heads' && arg2.toLowerCase() !== 'tails')) {
 						return Promise.reject({msg, u: this.usageString})
 					}
-				});
+					return new CurrencyUser(msg.author.username).bal('GET', null, {msg});
+				}).then(bal => {
+					if(bal < arg1) {
+						return Promise.reject({msg, u: `You do not have enough money. Your current balance is: **$${bal}**.`});
+					}
+					return db.hmsetAsync(`coinflip_${msg.author.username}`, ['author', msg.author.username, 'authorId', msg.author.id, 'amount', arg1, 'side', transformer(arg2)]);
+				}).then(() => new CurrencyUser(msg.author.username).bal('DECR', arg1, {msg})).then(() => msg.reply('You sucessfully created a game!'));
 				break;
 			case 'join':
+				if(!arg1 || typeof arg1 !== 'string') {
+					return Promise.reject({msg, u: this.usageString});
+				}
+
+				let gameDbString = `coinflip_${arg1}`,
+					flipValue = Math.floor(Math.random() * 2), //0 or 1
+					joiner = new CurrencyUser(msg.author.username),
+					author,
+					gameData;
+
+				return db.existsAsync(gameDbString).then(exists => {
+					if(exists) {
+						return db.hgetallAsync(gameDbString);
+					} else {
+						return Promise.reject({msg, u: `**${arg1}** currently isn't hosting a game.`});
+					}
+				}).then(data => {
+					gameData = data;
+					author = new CurrencyUser(data.author);
+				}).then(() => joiner.bal('GET', null, {msg})).then(bal => {
+					if(bal < Number(gameData.amount)) {
+						return Promise.reject({msg, u: `You need **$${gameData.amount}** to join this coinflip game. Your current balance is **$${bal}**.`});
+					}
+				}).then(() => {
+					if(flipValue === Number(gameData.side)) {
+						//the author of the coinflip game won
+						//steps: give author 2 * gameData.amount, remove gameData.amount from joiner's balance, delete game entry from db, reply with a message
+						return Promise.all([
+							author.bal('INCR', Number(gameData.amount) * 2),
+							joiner.bal('DECR', Number(gameData.amount)),
+							db.delAsync(gameDbString),
+							msg.channel.sendMessage(`The coin landed on **${transformer(flipValue)}**! <@!${gameData.authorId}> just won against <@!${msg.author.id}> for **$${gameData.amount}**`)
+						]);
+
+					} else {
+						//the joiner won
+						//steps: give joiner gameData.amount, delete game entry from db, reply with a message
+						return Promise.all([
+							joiner.bal('INCR', Number(gameData.amount)),
+							db.delAsync(gameDbString),
+							msg.channel.sendMessage(`The coin landed on **${transformer(flipValue)}**! <@!${msg.author.id}> just won against <@!${gameData.authorId}> for **$${gameData.amount}**.`)
+						]);
+					}
+				});
 				break;
 			default: 
 				return Promise.reject({msg, u: this.usageString});
