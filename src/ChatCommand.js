@@ -172,10 +172,9 @@ export default class ChatCommand {
 
 		if(this.options.aliases) {
 			final += '\n\n**Aliases:**\n\n';
+			final += this.options.aliases.map(alias => this.options.prefix + alias).join(', ');
 		}
-
-		final += this.options.aliases.map(alias => this.options.prefix + alias).join(', ');
-
+		
 		return final;
 	}
 }
