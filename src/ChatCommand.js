@@ -29,14 +29,51 @@ export default class ChatCommand {
 
 	called(content) {
 		//returns true if the command was called in the content string, false otherwise
-		if(this.options.caseSensitive) {
-			return content.startsWith(`${this.options.prefix}${this.commandName}`)
+		const calledWrapper = compareAgainst => {
+			if(this.options.caseSensitive) {
+				return content.startsWith(`${this.options.prefix}${compareAgainst}`)
+			} else {
+				return content.toLowerCase().startsWith(`${this.options.prefix.toLowerCase()}${compareAgainst.toLowerCase()}`)
+			}
+		}
+
+		if(calledWrapper(this.commandName)) {
+			return {
+				called: true,
+				with: this.commandName
+			}
+		} else if(this.options.aliases && Array.isArray(this.options.aliases) && this.options.aliases.length >= 1) {
+			let retValue;
+
+			for(let i = 0; i < this.options.aliases.length; i++) {
+				let alias = this.options.aliases[i];
+
+				console.log(alias, calledWrapper(alias));
+
+				if(calledWrapper(alias)) {
+					return retValue = {
+						called: true,
+						with: alias
+					}
+				}
+
+				if(i === this.options.aliases.length - 1) {
+					retValue = {
+						called: false
+					}
+				}
+			}
+
+			return retValue;
 		} else {
-			return content.toLowerCase().startsWith(`${this.options.prefix.toLowerCase()}${this.commandName.toLowerCase()}`)
+			return {
+				called: false
+			}
 		}
 	}
 
 	handleValidation(content, rejObj = new Object()) {
+		//returns a promise that resolves (with args, if any are needed) if 'content' is in par with all 'options', rejects with the usage string otherwise
 		if(this.options.requiredParams < 1) {
 			return Promise.resolve();
 		}
@@ -134,3 +171,11 @@ export default class ChatCommand {
 		return `Usage: ${this.options.usage}`;
 	}
 }
+
+let command = new ChatCommand('coinflip', null, {
+	aliases: ['cf']
+});
+
+let callVal = '!cof';
+
+console.log(command.called(callVal));
