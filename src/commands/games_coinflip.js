@@ -97,6 +97,7 @@ export const coinflip = new ChatCommand('coinflip', function(msg, args) {
 	}).catch(r_handler);
 }, {
 	requiredParams: 1,
+	aliases: ['cf', 'coinf'],
 	usage: ['!coinflip list', '!coinflip make <amount> <side>', '!coinflip join <username>']
 });
 

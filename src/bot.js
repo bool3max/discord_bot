@@ -16,11 +16,7 @@ Bot.on('ready', function() {
 
 
 	this.on('message', msg => {
-		chatCommands.forEach(chatCommand => {
-			if(chatCommand.called(msg.content)) {
-				return chatCommand.process(msg);
-			}
-		});
+		chatCommands.forEach(chatCommand => chatCommand.process(msg));
 	});
 
 	CurrencyUser.initPaycheck(this);

@@ -48,8 +48,6 @@ export default class ChatCommand {
 			for(let i = 0; i < this.options.aliases.length; i++) {
 				let alias = this.options.aliases[i];
 
-				console.log(alias, calledWrapper(alias));
-
 				if(calledWrapper(alias)) {
 					return retValue = {
 						called: true,
@@ -72,19 +70,19 @@ export default class ChatCommand {
 		}
 	}
 
-	handleValidation(content, rejObj = new Object()) {
+	handleValidation(content, calledWith, rejObj = new Object()) {
 		//returns a promise that resolves (with args, if any are needed) if 'content' is in par with all 'options', rejects with the usage string otherwise
+		//calledWith is a string that represents the command name that comes after the prefix, necessary because of aliases
 		if(this.options.requiredParams < 1) {
 			return Promise.resolve();
 		}
 
-		const fullCommand = content.substring(this.options.prefix.length + this.commandName.length + 1);
+		const fullCommand = content.substring(this.options.prefix.length + calledWith.length + 1);
 
 		if(fullCommand === '') {
 			return Promise.reject(Object.assign({
-				u: this.usageString,
-				d: 'Action wrongly executed'
-			}, rejObj))
+				u: this.usageString
+			}, rejObj));
 		}
 
 		const regex = / (?=[^"]*(?:"[^"]*"[^"]*)*$)/g;
@@ -111,47 +109,49 @@ export default class ChatCommand {
 	}
 
 	process(msg) {
-		//call this when you know that the ChatCommand was called (use ChatCommand.called)
+		const calledDetails = this.called(msg.content);
 
-		const currentUser = new CurrencyUser(msg.author.username);
-		let userBal,
-			userArgs;
+		if(calledDetails.called) {
+			if(this.options.buyPrice === 0 && this.options.exec_cost === 0) {
+				return this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => this.callback(msg, args)).catch(r_handler);
+			}
 
-		if(this.options.buyPrice === 0 && this.options.exec_cost === 0) {
-			return this.handleValidation(msg.content, {msg}).then(args => args ? this.callback(msg, args) : this.callback(msg)).catch(r_handler);
+			const currentUser = new CurrencyUser(msg.author.username);
+			let userBal,
+				userArgs;
+
+			this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => userArgs = args).then(() => currentUser.bal('GET', null, {msg})).then(bal => {
+				userBal = bal;
+			}).then(() => {
+				let proms = new Array();
+
+				if(this.options.buyPrice > 0) {
+					let prom = currentUser.hasCommand(this.commandName).then(hasCommand => {
+						if(hasCommand) {
+							return Promise.resolve();
+						} else {
+							return Promise.reject({msg, u: `You do not own the **${this.commandName}** command. You can purchase it by running: **!purchaseCmd ${this.commandName}**.`})
+						}
+					});
+
+					proms.push(prom);
+				}
+
+				if(this.options.exec_cost > 0) {
+					let prom = new Promise((resolve, reject) => {
+						if(userBal >= this.options.exec_cost) {
+							resolve();
+						} else {
+							reject({msg, u: `You do not have enough money. This command costs **$${this.options.exec_cost}**, and your current balance is **$${userBal}**`});
+						}
+					}).then(() => currentUser.bal('DECR', this.options.exec_cost, {msg}));
+
+					proms.push(prom);
+				}
+
+				return Promise.all(proms);
+			}).then(() => this.callback(msg, userArgs)).catch(r_handler);
 		}
-
-		this.handleValidation(msg.content, {msg}).then(args => userArgs = args).then(() => currentUser.bal('GET', null, {msg})).then(bal => {
-			userBal = bal;
-		}).then(() => {
-			let proms = new Array();
-
-			if(this.options.buyPrice > 0) {
-				let prom = currentUser.hasCommand(this.commandName).then(hasCommand => {
-					if(hasCommand) {
-						return Promise.resolve();
-					} else {
-						return Promise.reject({msg, u: `You do not own the **${this.commandName}** command. You can purchase it by running: **!purchaseCmd ${this.commandName}**.`})
-					}
-				});
-
-				proms.push(prom);
-			}
-
-			if(this.options.exec_cost > 0) {
-				let prom = new Promise((resolve, reject) => {
-					if(userBal >= this.options.exec_cost) {
-						resolve();
-					} else {
-						reject({msg, u: `You do not have enough money. This command costs **$${this.options.exec_cost}**, and your current balance is **$${userBal}**`});
-					}
-				}).then(() => currentUser.bal('DECR', this.options.exec_cost, {msg}));
-
-				proms.push(prom);
-			}
-
-			return Promise.all(proms);
-		}).then(() => userArgs ? this.callback(msg, userArgs) : this.callback(msg)).catch(r_handler);
 	}
 
 	get usageString() {
@@ -171,11 +171,3 @@ export default class ChatCommand {
 		return `Usage: ${this.options.usage}`;
 	}
 }
-
-let command = new ChatCommand('coinflip', null, {
-	aliases: ['cf']
-});
-
-let callVal = '!cof';
-
-console.log(command.called(callVal));
