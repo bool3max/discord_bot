@@ -156,18 +156,26 @@ export default class ChatCommand {
 
 	get usageString() {
 		//returns a string that should be sent to the user if the command is wrongly executed
+		let final = '\n\n**Usage:**\n';
+
 		if(Array.isArray(this.options.usage) && this.options.usage.length >= 2) {
 			//its an array, we're going to account for ATLEAST 2 elemnts
-			let usageString = '';
 			this.options.usage.forEach((str, i, arr) => {
 				if(i === arr.length - 1) {
-					return usageString += str;
+					return final += `\n${str}`;
 				}
-				usageString += `${str} **OR** `;
+				final += `\n${str} **OR**`;
 			});
-			return `Usage: ${usageString}`;
-		} 
+		} else {
+			final += `\n${this.options.usage}`;
+		}
 
-		return `Usage: ${this.options.usage}`;
+		if(this.options.aliases) {
+			final += '\n\n**Aliases:**\n\n';
+		}
+
+		final += this.options.aliases.map(alias => this.options.prefix + alias).join(', ');
+
+		return final;
 	}
 }
