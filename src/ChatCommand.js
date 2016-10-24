@@ -19,7 +19,7 @@ export default class ChatCommand {
 
 		if(this.options.buyPrice > 0) {
 			//if the command is buyable (price is greater than 0), we'll store it's price in the database, to later be used by !purchaseCommand
-			db.hsetAsync('commandPrices', commandName.toLowerCase(), this.options.buyPrice).then(reply => {
+			db.hsetAsync('commandPrices', commandName.toLowerCase(), this.options.buyPrice).then( () => {
 				//in the db, command names are ALWAYS all lowercase
 				console.log(`Sucessfully set command: ${commandName}'s price (${this.options.buyPrice}) in the database.`);
 			}).catch(r_handler);
@@ -29,11 +29,11 @@ export default class ChatCommand {
 
 	called(content) {
 		//returns true if the command was called in the content string, false otherwise
-		const calledWrapper = compareAgainst => {
+		const calledWrapper = cmdName => {
 			if(this.options.caseSensitive) {
-				return content.startsWith(`${this.options.prefix}${compareAgainst}`)
+				return content.startsWith(`${this.options.prefix}${cmdName}`)
 			} else {
-				return content.toLowerCase().startsWith(`${this.options.prefix.toLowerCase()}${compareAgainst.toLowerCase()}`)
+				return content.toLowerCase().startsWith(`${this.options.prefix.toLowerCase()}${cmdName.toLowerCase()}`)
 			}
 		}
 
@@ -108,49 +108,45 @@ export default class ChatCommand {
 		}
 	}
 
+//check arguments, run deduct_exec_cost, if it resolves, run the core of the command
+
 	process(msg) {
 		const calledDetails = this.called(msg.content);
 
 		if(calledDetails.called) {
-			if(this.options.buyPrice === 0 && this.options.exec_cost === 0) {
-				return this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => this.callback(msg, args)).catch(r_handler);
-			}
 
-			const currentUser = new CurrencyUser(msg.author.username);
-			let userBal,
+			let deduct_exec_cost,
 				userArgs;
 
-			this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => userArgs = args).then(() => currentUser.bal('GET', null, {msg})).then(bal => {
-				userBal = bal;
-			}).then(() => {
-				let proms = new Array();
+			const currentUser = new CurrencyUser(msg.author.username);
 
-				if(this.options.buyPrice > 0) {
-					let prom = currentUser.hasCommand(this.commandName).then(hasCommand => {
-						if(hasCommand) {
-							return Promise.resolve();
+			if(this.options.exec_cost > 0) {
+				deduct_exec_cost = () => {
+					//returns a promise that resolves if bal was deducted sucessfully, rejects otherwise
+					return CurrencyUser.exists(currentUser.username, {msg}).then(() => currentUser.bal('GET', null, {msg})).then(bal => {
+						if(bal >= this.options.exec_cost) {
+							return currentUser.bal('DECR', this.options.exec_cost, {msg});
 						} else {
-							return Promise.reject({msg, u: `You do not own the **${this.commandName}** command. You can purchase it by running: **!purchaseCmd ${this.commandName}**.`})
+							return Promise.reject({msg, u: `You do not have enough money. This command costs **$${this.options.exec_cost}**, and your current balance is **$${bal}**.`});
 						}
 					});
-
-					proms.push(prom);
 				}
+			}
 
-				if(this.options.exec_cost > 0) {
-					let prom = new Promise((resolve, reject) => {
-						if(userBal >= this.options.exec_cost) {
-							resolve();
-						} else {
-							reject({msg, u: `You do not have enough money. This command costs **$${this.options.exec_cost}**, and your current balance is **$${userBal}**`});
-						}
-					}).then(() => currentUser.bal('DECR', this.options.exec_cost, {msg}));
+			if(this.options.buyPrice === 0) {
+				//if there's no buyPrice, we go through the validation process and call the callback
+				return this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => this.callback(msg, args, deduct_exec_cost)).catch(r_handler);
+			}
 
-					proms.push(prom);
+			//if there is buyPrice
+
+			this.handleValidation(msg.content, calledDetails.with, {msg}).then(args => userArgs = args).then(() => CurrencyUser.exists(currentUser.username, {msg})).then(() => currentUser.hasCommand(this.commandName)).then(hasCommand => {
+				if(hasCommand) {
+					return Promise.resolve();
+				} else {
+					return Promise.reject({msg, u: `You do not own the **${this.commandName}** command. You can purchase it by running: **!purchaseCmd ${this.commandName}**.`});
 				}
-
-				return Promise.all(proms);
-			}).then(() => this.callback(msg, userArgs)).catch(r_handler);
+			}).then(() => this.callback(msg, userArgs, deduct_exec_cost)).catch(r_handler);
 		}
 	}
 

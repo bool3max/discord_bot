@@ -31,8 +31,12 @@ export const bug = new ChatCommand('bug', (msg, args) => {
 	usage: '!bug <description>'
 });
 
-export const test = new ChatCommand('test', (msg, args) => {
-	if(typeof args[0] === 'number') {
-		msg.reply('success').catch(r_handler);
+export const test = new ChatCommand('test', (msg, args, dec) => {
+	let [arg1] = args;
+	if(arg1 !== 'something') {
+		return msg.reply('wrong, bitch');
 	}
-}, {exec_cost: 30, requiredParams: 1});
+	dec().then(function() {
+		console.log('test executed');
+	}).catch(r_handler);
+}, {buyPrice: 100, exec_cost: 10, requiredParams: 1});

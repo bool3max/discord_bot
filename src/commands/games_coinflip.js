@@ -77,7 +77,7 @@ export const coinflip = new ChatCommand('coinflip', function(msg, args) {
 							author.bal('INCR', Number(gameData.amount) * 2),
 							joiner.bal('DECR', Number(gameData.amount)),
 							db.delAsync(gameDbString),
-							msg.channel.sendMessage(`The coin landed on **${transformer(flipValue)}**! <@!${gameData.authorId}> just won against <@!${msg.author.id}> for **$${gameData.amount}**`)
+							msg.channel.sendMessage(`The coin landed on **${transformer(flipValue)}**! <@!${gameData.authorId}> just won against <@!${msg.author.id}> for **$${gameData.amount}**.`)
 						]);
 
 					} else {
