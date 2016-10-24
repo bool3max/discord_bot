@@ -34,6 +34,10 @@ export default class CurrencyUser {
 		});
 	} //done
 
+	exists(rejObj = new Object()) {
+		return CurrencyUser.exists(this.username, rejObj);
+	}
+
 	get() {
 		//returns a promise that resolves with the user object in the database
 		return CurrencyUser.getUser(this.username);
