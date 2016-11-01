@@ -1,23 +1,15 @@
 # discord_bot
-A simple custom Discord bot written with Discord.js
 
-Development: 
+A personal currency Discord bot written in `discord.js`.
 
-    NOTE: This is requires that you have a local Redis server running on port 6379 (also make sure to change (or remove) the redis auth passowrd in src/database.js)
+<h3>Development</h3>
 
-	Clone the repo
-
-	Run 'sudo npm install' to fetch all dependencies
-
-	Run 'npm run init' to compile the src directory for the first time, and also create a bot_config.json file in ./build
-
-    Go into build/bot_config.json. Make it an object containing 2 properties. `bot_token`, the token for your bot,
-	and `steam_api_key`, a string containing your steam api key (only if you wish to use the steam commands)
-
-	From there you can run 'npm run babel' to run a watcher on the src directory (instead of having to use 'npm run init' every single time)
-
-	You can run the bot by running 'npm run bot'
-
-	'npm run bot' is an alias for 'nodemon --watch build', therefore whenever you change a file in the src or build dir, the bot will restart
-
-
+1. Clone the repository
+2. Run `sudo npm install` to fetch all required dependencies
+3. Run `npm run init` 
+4. Go into `build/bot_config.json`, and make it an object populated with the following keys:
+	- `bot_token`: a token for your bot
+	- `redis_pass`: (OPTIONAL), the password for your Redis server
+	- `steam_api_key`: (OPTIONAL), only if you wish to use the Steam commands
+5. Run `npm run babel` to run a compiler
+6. Run `npm run bot` to start the bot, which restars when you change a file in the `src` dir
