@@ -2,7 +2,7 @@
   "name": "discord_bot",
   "version": "0.1.1",
   "description": "A simple Discord bot written using Discord.js",
-  "main": "build/bot.js",
+  "main": "build/index.js",
   "scripts": {
     "init": "babel ./src -d ./build && touch ./build/bot_config.json",
     "babel": "babel ./src -w -d ./build",
