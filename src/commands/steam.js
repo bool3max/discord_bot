@@ -31,6 +31,26 @@ export const steam = new ChatCommand('steam', function(msg, args) {
 							}
 							final += toAttach;
 						});
+						if(final.length > 2000) {
+							console.log(`Message is over 2000 characters long!: ${final.length}`);
+							let individual = final.split('\n').map((line, i, arr) => i !== arr.length - 1 ? line + '\n' : line),
+								breakpoint,
+								msg1 = '',
+								msg2 = '';
+							individual.forEach((line, i, arr) => {
+								if((msg1.length + line.length) > 2000) {
+									return breakpoint = i;
+								}
+								msg1 += line;	
+							});
+							console.log(breakpoint);
+							for(;breakpoint < individual.length; breakpoint++) {
+								msg2 += individual[breakpoint];
+							}
+							console.log(msg1.length, msg2.length);
+							return msg.reply(msg2);
+						}
+						console.log('Returning regular final message!');
 
 						return msg.reply(final);
 

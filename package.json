@@ -5,9 +5,9 @@
   "main": "build/index.js",
   "scripts": {
     "init": "babel ./src -d ./build && touch ./build/bot_config.json",
-    "babel": "babel ./src -w -d ./build",
-    "bot": "nodemon -w build",
-    "wss": "node -w build build/wss.js"
+    "compiler": "babel ./src -w -d ./build",
+    "start": "nodemon -w build --harmony",
+    "debug": "nodemon -w build debug --harmony"
   },
   "repository": {
     "type": "git",
