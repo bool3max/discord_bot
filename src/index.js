@@ -16,7 +16,11 @@ Bot.on('ready', function() {
 
 
 	this.on('message', msg => {
-		chatCommands.forEach(chatCommand => chatCommand.process(msg));
+		chatCommands.forEach(chatCommand => {
+			if(chatCommand instanceof require('./ChatCommand').default) {
+				chatCommand.process(msg);
+			}
+		});
 	});
 
 	CurrencyUser.initPaycheck(this);
@@ -26,18 +30,9 @@ Bot.on('ready', function() {
 Bot.login(bot_config.bot_token);
 
 function loadCommands() {
-	//TODO: add validation to check whether cmdsObj's prop is an instance of ChatCommand
-	//loops through all files in build/commands. requires() each one. if loops through each one's props. if it's an own prop, pushes it's value to the chatCommands arr
-	//if at the end, chatCommands has no elements, returns null, otherwise returns the chatCommands array
 	let chatCommands = new Array();
 	fs.readdirSync('./build/commands').forEach(cmdFile => {
-		const cmdsObj = require(`./commands/${cmdFile}`);
-		for(let prop in cmdsObj) {
-			if(cmdsObj.hasOwnProperty(prop)) {
-				chatCommands.push(cmdsObj[prop]);
-			}
-		}
+		chatCommands.push(...require(`./commands/${cmdFile}`).default);
 	});
-
-	return chatCommands.length < 1 ? null : chatCommands;
+	return chatCommands;
 }

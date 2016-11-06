@@ -3,7 +3,7 @@ import db from '../db/database';
 import CurrencyUser from '../CurrencyUser';
 import r_handler from '../utils/reject_handler';
 
-export const coinflip = new ChatCommand('coinflip', function(msg, args) {
+const cmd_coinflip = new ChatCommand('coinflip', function(msg, args) {
 	CurrencyUser.exists(msg.author.username, {msg}).then(() => {
 		let [action, arg1, arg2] = args;
 		switch(action.toLowerCase()) {
@@ -101,7 +101,7 @@ export const coinflip = new ChatCommand('coinflip', function(msg, args) {
 	usage: ['!coinflip list', '!coinflip make <amount> <side>', '!coinflip join <username>']
 });
 
-//!coinflip list
+export default [cmd_coinflip];
 
 function fetchActiveGames() {
 	//returns an array of objcets that reporesent an active game

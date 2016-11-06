@@ -108,7 +108,7 @@ export default class ChatCommand {
 		}
 	}
 
-//check arguments, run deduct_exec_cost, if it resolves, run the core of the command
+	//check arguments, run deduct_exec_cost, if it resolves, run the core of the command
 
 	process(msg) {
 		const calledDetails = this.called(msg.content);

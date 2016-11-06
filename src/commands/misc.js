@@ -1,7 +1,7 @@
 import ChatCommand from '../ChatCommand';
 import fetch from 'node-fetch';
 
-export const spam = new ChatCommand('spam', (msg, args) => {
+const cmd_spam = new ChatCommand('spam', (msg, args) => {
 	let [messageToSend, intervalInMsec, cancelAfter] = args;
 
 	intervalInMsec *= 1000;
@@ -18,7 +18,7 @@ export const spam = new ChatCommand('spam', (msg, args) => {
 	buyPrice: 3500
 });
 
-export const rot13 = new ChatCommand('rot13', (msg, args) => {
+const cmd_rot13 = new ChatCommand('rot13', (msg, args) => {
 
 	function rot13char(char) {
 		const alphabet = 'abcdefghijklmnopqrstuvwxyz';
@@ -46,7 +46,7 @@ export const rot13 = new ChatCommand('rot13', (msg, args) => {
 	exec_cost: 20
 });
 
-
+export default [cmd_rot13, cmd_spam];
 
 // DiscordClient.on('message', msg => {
 // 		//transform subreddits into actual links
