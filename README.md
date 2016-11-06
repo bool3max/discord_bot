@@ -11,5 +11,5 @@ A personal currency Discord bot written in `discord.js`.
 	- `bot_token`: a token for your bot
 	- `redis_pass`: (OPTIONAL), the password for your Redis server
 	- `steam_api_key`: (OPTIONAL), only if you wish to use the Steam commands
-5. Run `npm run babel` to run a compiler
-6. Run `npm run bot` to start the bot, which restars when you change a file in the `src` dir
+5. Run `npm run compiler` to run a compiler
+6. Run `npm run start` to start the bot, which restars when you change a file in the `src` dir
